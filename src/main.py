@@ -34,7 +34,7 @@ def process_overview_sheet():
                 else:
                     order_detail = create_sell_order(pair, str_usdt_ntl)
                     if order_detail:
-                        # send_email("Crypto-Binance-Sell", json.dumps(order_detail))
+                        send_email("Crypto-Binance-Sell", json.dumps(order_detail))
                         # checked that executedQty is the base qty
                         process_binance_sheet(workbook, _id, datetime.today(), str_usdt_ntl, -float(order_detail["executedQty"]))
             workbook.save()
