@@ -1,21 +1,29 @@
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from openpyxl import load_workbook
 from contextlib import contextmanager
 from colorama import Fore, Style
+from requests.sessions import Session as Session
 import yaml
 from binance import Client
+import win32com.client
+import xlwings as xw
+import pywintypes
+
+
+with open("config.yaml") as f:
+    CONFIGS = yaml.safe_load(f)
 
 # excel_path = "D:\Google Drive\AJ\Excel"
-excel_path = "/Users/lei/code/python-scripts/crypto.xlsm"
+excel_path = CONFIGS["EXCEL_PATH"]
+
 
 @contextmanager
-def read_sheet(sheetname, is_save=True):
-    workbook = load_workbook(excel_path)
-    yield workbook[sheetname]
-    if is_save:
-        workbook.save(excel_path)
+def read_and_save_workbook():
+    workbook = xw.Book(excel_path)
+    yield workbook
+    workbook.save()
+
 
 def color_print(msg, color=None):
     if color=="green":
@@ -25,8 +33,11 @@ def color_print(msg, color=None):
     else:
         print(Style.RESET_ALL+msg)
 
-def send_email(subject, body, to_emails, from_email, password):
+def send_email(subject:str, body:str):
     # Create the email message
+    password = CONFIGS["EMAIL_PASS"]
+    from_email = CONFIGS["EMAIL_FROM"]
+    to_emails = CONFIGS["EMAIL_TO"]
     msg = MIMEMultipart()
     msg['From'] = from_email
     msg['To'] = ', '.join(to_emails)
@@ -54,13 +65,16 @@ def format_usd_ntl(ntl:str)->float:
 def format_currency(ntl:float)->str:
     return "US${:10,.8f}".format(ntl)
 
-# Load the private key.
-# In this example the key is expected to be stored without encryption,
-# but we recommend using a strong password for improved security.
-with open("config.yaml") as f:
-    CONFIGS = yaml.safe_load(f)
+
+def call_vb(wb:xw.Book):
+    macro = wb.macro("Sheet9.BinanceRate")
+    try:
+        macro()
+    except pywintypes.com_error:
+        print("some error happen when calling vba")
+        return
 
 if CONFIGS["TESTNET"] is True:
-    color_print("Running on testnet", "Green")
+    color_print("Running on testnet", "green")
 
 CLIENT = Client(CONFIGS["API_KEY"], CONFIGS["SECRET_KEY"], testnet=CONFIGS["TESTNET"])
