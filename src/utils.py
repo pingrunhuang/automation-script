@@ -67,6 +67,7 @@ def format_currency(ntl:float)->str:
 
 
 def call_vb(wb:xw.Book):
+    print("calling vba......")
     macro = wb.macro("Sheet9.BinanceRate")
     try:
         macro()
