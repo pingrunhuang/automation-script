@@ -9,10 +9,9 @@ from colorama import Fore, Style
 from requests.sessions import Session as Session
 import yaml
 from binance import Client
-import win32com.client
 import xlwings as xw
 import pywintypes
-
+import json
 
 with open("config.yaml") as f:
     CONFIGS = yaml.safe_load(f)
@@ -86,26 +85,35 @@ if CONFIGS["TESTNET"] is True:
 
 
 class MyBNCClient(Client):
+    sell_params = None
+
     def create_order(self, **params):
         print(f"Creating sell order with parameters: {params}")
         uri = self._create_api_uri("order", True, BaseClient.PUBLIC_API_VERSION)
         print(f"Endpoing: {uri}")
         self.sell_params = params
         return super().create_order(**params)
-    def generate_reject_email(self):
+    
+    def generate_reject_email(self, symbol:str, cummulativeQuoteQty:str, columnMcell:str, endpoint:str, response:dict):
         """
         - Symbol:	XXX (take from "symbol" crop out ending USDT)
-        - Profit:		YYY.YY (take from “cummulativeQuoteQty")
+        - price:		YYY.YY (take from “cummulativeQuoteQty")
         - Expd Profit:	YYY.YY (take from columnMcell)
         - line break
         - posted api
-                        - line break
+        - line break
         - full details of 5.2
         """
-        pass
+        lines = [
+            f"- Symbol: {symbol}",
+            f"- Price: {cummulativeQuoteQty}",
+            f"- Expd Price: {columnMcell}\n",
+            f"- posted api: {endpoint}\n",
+            f"- full details of 5.2: {json.dumps(response)}"
+        ]
+        return "\n".join(lines)
 
-
-    def generate_sell_email(self, resp:dict):
+    def generate_sell_email(self, resp:dict, columnMcell:str):
         """
         ) send email with subject: “Crypto-Binance-SellDone”, Body:
         - Symbol:	XXX (take from "symbol" crop out ending USDT)
@@ -118,22 +126,31 @@ class MyBNCClient(Client):
         - full details of 5.2.3.2
         """
         lines = [
-            f"Symbol: {resp["symbol"]}, Profit: {resp["cummulativeQuoteQty"]}, Expd Profit: {resp["columnMcell"]}, Qty: {resp["executedQty"]}",
-            f"API endpoint: {self._create_api_uri("order", True, BaseClient.PUBLIC_API_VERSION)}"
-            f"Parameters: {self.sell_params}",
-            f"Responses: {resp}"
+            f"- Symbol: {resp['symbol']}",
+            f"- Profit: {resp['cummulativeQuoteQty']}", 
+            f"- Expd Profit: {columnMcell}", 
+            f"- Qty: {resp['executedQty']}\n",
+            f"- API endpoint: {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}"
+            f"- Parameters: {json.dumps(self.sell_params)}\n",
+            f"- Responses: {json.dumps(resp)}"
         ]
         return "\n".join(lines)
 
-    def generate_sell_error_mail(self):
+    def generate_sell_error_mail(self, msg:str):
         """
-        5.2.3.2.1.1) send email with subject: “Crypto-Binance-SellOrderError”, Body:
-                        - posted api
+        send email with subject: “Crypto-Binance-SellOrderError”, Body:
         - line break
         - full details of 5.2.3.2
         """
+        lines = [
+            f"- posted api: {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}"
+            f"- posted params: {json.dumps(self.sell_params)}\n",
+            f"- detail error msg: {msg}"
+        ]
+        return "\n".join(lines)
 
-    def generate_balance_email(self):
+
+    def generate_balance_email(self, AQ2, AS2, AQ4, AN23):
         """
         - Total-USD:		XXX.XX (cell value from AQ2)
         - Total-AED:		XXX.XX (cell value from AS2)
@@ -145,8 +162,27 @@ class MyBNCClient(Client):
         - line break
         - full details of 7.2
         """
-        pass
+        url = self._create_api_uri("account", signed=False, version=BaseClient.PUBLIC_API_VERSION)
+        resp = self.get_asset_balance("USDT")
+        print(f"Posting api: {url}, resp: {resp}")
+        assert type(resp)==dict
+        lines = [
+            f"- Total-USD: {AQ2}",
+            f"- Total-AED: {AS2}",
+            f"- P/L%: {AQ4}",
+            f"- AJ-USDT: {AN23}",
+            f"- Binance-USDT: {resp['free']}\n",
+            f"- posted-api: {url}\n",
+            f"- full detail of 7.2: {json.dumps(resp)}"
+        ]
+        return "\n".join(lines)
 
+    def generate_error_email(self, url, resp):
+        lines = [
+            f"- posted-api: {url}\n",
+            f"- full detail of 5.1: {json.dumps(resp)}"
+        ]
+        return "\n".join(lines)
 
 CLIENT = MyBNCClient(CONFIGS["API_KEY"], CONFIGS["SECRET_KEY"], testnet=CONFIGS["TESTNET"])
 
