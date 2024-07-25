@@ -17,31 +17,41 @@ def process_overview_sheet():
             marketsell = sheet[f"N{row}"].value
             str_usdt_ntl = sheet[f"M{row}"].value
             call_vb(workbook)
+            input("called vb, check to continue")
+
             if str_usdt_ntl=="-":
+                input("proceeding step 5.3.3.5.1")
                 print("Illegal number of quote qty")
             else:
                 pair = f"{sym}USDT"
+                input("proceeding step 5.1")
                 print(f"processing symbol={sym}")
                 url = f"https://api.binance.com/api/v1/ticker/price?symbol={pair}"
-                res = requests.get(url, proxies={"https":"127.0.0.1:7890"})
+                res = requests.get(url)
                 data = res.json()
                 # show info
                 print(f"Response: {data}")
                 prx = float(data["price"])
 
                 if prx < marketsell:
+                    input("proceeding step 5.2.2")
                     send_email("Crypto-Binance-Reject", f"{sym}\t{marketsell}")
                 else:
+                    input("proceeding step 5.2.3.1")
                     order_detail = create_sell_order(pair, str_usdt_ntl)
                     if order_detail:
-                        send_email("Crypto-Binance-Sell", json.dumps(order_detail))
+                        input("proceeding step 5.2.3.2.2")
                         # checked that executedQty is the base qty
                         process_binance_sheet(workbook, _id, datetime.today(), str_usdt_ntl, -float(order_detail["executedQty"]))
+                        input("proceeding step 5.3.3.4")
+                        send_email("Crypto-Binance-Sell", CLIENT.generate_sell_email(order_detail))
             workbook.save()
             row+=1
             print("######################################################################")
 
+
 def create_sell_order(pair, quote_qty):
+    input("create sell order?")
     print(f"Creating selling order of {pair} with {quote_qty} and wait for 5 seconds...")
     time.sleep(5)
     resp = CLIENT.order_market_sell(symbol=pair, quoteOrderQty=format_usd_ntl(quote_qty))
@@ -78,6 +88,6 @@ def process_binance_sheet(workbook:Book, _id:str, dt:datetime, usdt_profit:str, 
     sheet.cells(row, 5).value=str_dt # column E
     sheet.cells(row, 8).value=usdt_profit # column H
     sheet.cells(row, 10).value=qty # column J
-
+    input("check binance sheet?")
 
 process_overview_sheet()
