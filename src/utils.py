@@ -1,4 +1,3 @@
-from pathlib import Path
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -10,7 +9,6 @@ from requests.sessions import Session as Session
 import yaml
 from binance import Client
 import xlwings as xw
-import pywintypes
 import json
 
 with open("config.yaml") as f:
@@ -73,8 +71,8 @@ def call_vb(wb:xw.Book):
     macro = wb.macro("Sheet9.BinanceRate")
     try:
         macro()
-    except pywintypes.com_error:
-        print("some error happen when calling vba")
+    except Exception as e:
+        print(f"some error happen when calling vba: {e}")
         return
     finally:
         print("Done vba")
@@ -94,26 +92,26 @@ class MyBNCClient(Client):
         self.sell_params = params
         return super().create_order(**params)
     
-    def generate_reject_email(self, symbol:str, cummulativeQuoteQty:str, columnMcell:str, endpoint:str, response:dict):
+    def generate_reject_email(self, symbol:str, price:str, columeNcell:str, endpoint:str, response:dict):
         """
         - Symbol:	XXX (take from "symbol" crop out ending USDT)
-        - price:		YYY.YY (take from “cummulativeQuoteQty")
-        - Expd Profit:	YYY.YY (take from columnMcell)
+        - price:		YYY.YY (take from price")
+        - Expd Profit:	YYY.YY (take from columnNcell)
         - line break
         - posted api
         - line break
         - full details of 5.2
         """
         lines = [
-            f"- Symbol: {symbol}",
-            f"- Price: {cummulativeQuoteQty}",
-            f"- Expd Price: {columnMcell}\n",
-            f"- posted api: {endpoint}\n",
-            f"- full details of 5.2: {json.dumps(response)}"
+            f"Symbol:       {symbol}",
+            f"Price:        {price}",
+            f"Expd Price:   {columeNcell}\n",
+            f"posted api: {endpoint}\n",
+            f"full details of 5.2: {json.dumps(response)}"
         ]
         return "\n".join(lines)
 
-    def generate_sell_email(self, resp:dict, columnMcell:str):
+    def generate_sell_email(self, sym, resp:dict, columnMcell:str):
         """
         ) send email with subject: “Crypto-Binance-SellDone”, Body:
         - Symbol:	XXX (take from "symbol" crop out ending USDT)
@@ -126,13 +124,13 @@ class MyBNCClient(Client):
         - full details of 5.2.3.2
         """
         lines = [
-            f"- Symbol: {resp['symbol']}",
-            f"- Profit: {resp['cummulativeQuoteQty']}", 
-            f"- Expd Profit: {columnMcell}", 
-            f"- Qty: {resp['executedQty']}\n",
-            f"- API endpoint: {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}"
-            f"- Parameters: {json.dumps(self.sell_params)}\n",
-            f"- Responses: {json.dumps(resp)}"
+            f"Symbol:       {sym}",
+            f"Profit:       {resp['cummulativeQuoteQty']}", 
+            f"Expd Profit:  {columnMcell}", 
+            f"Qty:          {resp['executedQty']}\n",
+            f"API endpoint: {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}"
+            f"Parameters: {json.dumps(self.sell_params)}\n",
+            f"Responses: {json.dumps(resp)}"
         ]
         return "\n".join(lines)
 
@@ -167,13 +165,13 @@ class MyBNCClient(Client):
         print(f"Posting api: {url}, resp: {resp}")
         assert type(resp)==dict
         lines = [
-            f"- Total-USD: {AQ2}",
-            f"- Total-AED: {AS2}",
-            f"- P/L%: {AQ4}",
-            f"- AJ-USDT: {AN23}",
-            f"- Binance-USDT: {resp['free']}\n",
-            f"- posted-api: {url}\n",
-            f"- full detail of 7.2: {json.dumps(resp)}"
+            f"Total-USD:        {AQ2}",
+            f"Total-AED:        {AS2}",
+            f"P/L%:             {AQ4}",
+            f"AJ-USDT:          {AN23}",
+            f"Binance-USDT:     {resp['free']}\n",
+            f"posted-api: {url}\n",
+            f"full detail of 7.2: {json.dumps(resp)}"
         ]
         return "\n".join(lines)
 
@@ -187,3 +185,4 @@ class MyBNCClient(Client):
 CLIENT = MyBNCClient(CONFIGS["API_KEY"], CONFIGS["SECRET_KEY"], testnet=CONFIGS["TESTNET"])
 
 
+PROXY = CONFIGS.get("PROXY", {})

@@ -1,9 +1,8 @@
 import requests
-from utils import CLIENT, send_email, format_usd_ntl, call_vb, read_and_save_workbook
+from utils import CLIENT, send_email, format_usd_ntl, call_vb, read_and_save_workbook, PROXY
 import time
 from pprint import pprint
 from datetime import datetime
-import json
 from xlwings import Book, Sheet
 from binance.exceptions import BinanceAPIException, BinanceOrderException
 
@@ -12,50 +11,64 @@ def process_overview_sheet():
         sheet = workbook.sheets["Overview"]
         row = 2
         while sheet[f"C{row}"].value is not None:
+            input("called vb on step 3, continue?")
+            call_vb(workbook)
             sheet = workbook.sheets["Overview"]
             _id = sheet[f"A{row}"].value
             sym = sheet[f"C{row}"].value
-            marketsell = sheet[f"N{row}"].value
-            str_usdt_ntl = sheet[f"M{row}"].value
-            call_vb(workbook)
-            input("called vb, continue?")
-
-            if str_usdt_ntl=="-":
-                input("proceeding step 5.3.3.5.1?")
-                print("Illegal number of quote qty")
-            else:
-                pair = f"{sym}USDT"
-                input("proceeding step 5.1?")
-                print(f"processing symbol={sym}")
-                url = f"https://api.binance.com/api/v1/ticker/price?symbol={pair}"
-                res = requests.get(url, proxies={"https":"127.0.0.1:7890"})
-                data = res.json()
-                if data.get("code"):
-                    input(f"error fetching {pair} price: {data}, continue?")
-                    send_email("Crypto-Binance-SellError", CLIENT.generate_error_email(url, data))
+            exch = sheet[f"AG{row}"].value
+            if exch == "Binance":
+                input("Proceeding step 4.1?")
+                marketsell = sheet[f"N{row}"].value
+                str_usdt_ntl = sheet[f"M{row}"].value
+                
+                if str_usdt_ntl=="-":
+                    input("proceeding step 4.2?")
+                    print("Illegal number of quote qty")
                 else:
-                    # show info
-                    print(f"Response: {data}")
-                    prx = float(data["price"])
-
-                    if prx < marketsell:
-                        input(f"price from api:{prx} < marketsell:{marketsell}, proceeding step 5.2.2?")
-                        send_email("Crypto-Binance-SellReject", CLIENT.generate_reject_email(sym, data["cummulativeQuoteQty"], str_usdt_ntl, url, data))
+                    pair = f"{sym}USDT"
+                    input("proceeding step 5.1?")
+                    print(f"processing symbol={sym}")
+                    url = f"https://api.binance.com/api/v1/ticker/price?symbol={pair}"
+                    try:
+                        if PROXY:
+                            print(f"using proxy: {PROXY}")
+                            res = requests.get(url, proxies=PROXY)
+                        else:
+                            res = requests.get(url)
+                        data = res.json()
+                    except Exception as e:
+                        data = {"msg": str(e)}
+                        
+                    if data.get("code") or data.get("price") in (0, "0"):
+                        input(f"error fetching {pair} price: {data}, continue?")
+                        send_email("Crypto-Binance-SellQueryError", CLIENT.generate_error_email(url, data))
                     else:
-                        input(f"price from api:{prx} >= marketsell:{marketsell}, proceeding step 5.2.3.1?")
-                        try:
-                            order_detail = create_sell_order(pair, str_usdt_ntl)
-                            if order_detail:
-                                input("proceeding step 5.2.3.2.2?")
-                                # checked that executedQty is the base qty
-                                process_binance_sheet(workbook, _id, datetime.today(), str_usdt_ntl, -float(order_detail["executedQty"]))
-                                input("proceeding step 5.2.3.2.2.7?")
-                                send_email("Crypto-Binance-SellDone", CLIENT.generate_sell_email(order_detail, str_usdt_ntl))
+                        # show info
+                        print(f"Response: {data}")
+                        prx = float(data["price"])
 
-                        except BinanceOrderException|BinanceAPIException as e:
-                            input("Binance sell order error, continue?")
-                            send_email("Crypto-Binance-SellOrderError", body=CLIENT.generate_sell_error_mail(e.message)) 
-            workbook.save()
+                        if prx < marketsell:
+                            input(f"price from api:{prx} < marketsell:{marketsell}, proceeding step 5.2.2?")
+                            send_email("Crypto-Binance-SellReject", CLIENT.generate_reject_email(sym, data["price"], marketsell, url, data))
+                        else:
+                            input(f"price from api:{prx} >= marketsell:{marketsell}, proceeding step 5.2.3.1?")
+                            try:
+                                order_detail = create_sell_order(pair, str_usdt_ntl)
+                                if order_detail:
+                                    input("proceeding step 5.2.3.2.2?")
+                                    # checked that executedQty is the base qty
+                                    process_binance_sheet(workbook, _id, datetime.today(), float(order_detail["cummulativeQuoteQty"]), -float(order_detail["executedQty"]))
+                                    input("proceeding step 5.2.3.2.2.7?")
+                                    send_email("Crypto-Binance-SellDone", CLIENT.generate_sell_email(sym, order_detail, str_usdt_ntl))
+
+                            except BinanceOrderException|BinanceAPIException as e:
+                                input("Binance sell order error step 5.2.3.2.1, continue?")
+                                send_email("Crypto-Binance-SellOrderError", body=CLIENT.generate_sell_error_mail(e.message)) 
+                workbook.save()
+            else:
+                input("Proceeding step 4.1")
+                print("not from binance")
             row+=1
             print("######################################################################")
         total_usd = sheet["AQ2"].value
