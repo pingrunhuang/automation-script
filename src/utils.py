@@ -21,8 +21,12 @@ excel_path = CONFIGS["EXCEL_PATH"]
 @contextmanager
 def read_and_save_workbook():
     workbook = xw.Book(excel_path)
+    app = workbook.app
+    call_vb(workbook)
     yield workbook
     workbook.save()
+    workbook.close()
+    app.kill()
 
 
 def color_print(msg, color=None):
@@ -33,7 +37,7 @@ def color_print(msg, color=None):
     else:
         print(Style.RESET_ALL+msg)
 
-def send_email(subject:str, body:str):
+def send_email(subject:str, body:str, workbook:xw.Book=None):
     # Create the email message
     password = CONFIGS["EMAIL_PASS"]
     from_email = CONFIGS["EMAIL_FROM"]
@@ -57,6 +61,9 @@ def send_email(subject:str, body:str):
         print("Email sent successfully!")
     except Exception as e:
         print(f"Failed to send email: {str(e)}")
+    finally:
+        if workbook:
+            call_vb(workbook)
 
 def format_usd_ntl(ntl:str)->float:
     # return float(ntl.replace("US$", ""))
@@ -141,9 +148,9 @@ class MyBNCClient(Client):
         - full details of 5.2.3.2
         """
         lines = [
-            f"- posted api: {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}"
-            f"- posted params: {json.dumps(self.sell_params)}\n",
-            f"- detail error msg: {msg}"
+            f"posted api: {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}\n"
+            f"posted params: {json.dumps(self.sell_params)}\n",
+            f"detail error msg: {msg}"
         ]
         return "\n".join(lines)
 
@@ -165,11 +172,11 @@ class MyBNCClient(Client):
         print(f"Posting api: {url}, resp: {resp}")
         assert type(resp)==dict
         lines = [
-            f"Total-USD:        {AQ2}",
-            f"Total-AED:        {AS2}",
-            f"P/L%:             {AQ4}",
+            f"Total-USD:        {int(AQ2)}",
+            f"Total-AED:        {int(AS2)}",
+            f"P/L%:             {int(AQ4*100)}%",
             f"AJ-USDT:          {AN23}",
-            f"Binance-USDT:     {resp['free']}\n",
+            f"Binance-USDT:     {int(float(resp['free']))}\n",
             f"posted-api: {url}\n",
             f"full detail of 7.2: {json.dumps(resp)}"
         ]
@@ -186,3 +193,4 @@ CLIENT = MyBNCClient(CONFIGS["API_KEY"], CONFIGS["SECRET_KEY"], testnet=CONFIGS[
 
 
 PROXY = CONFIGS.get("PROXY", {})
+INTERFERENCE = CONFIGS.get("INTERFERENCE", True)
