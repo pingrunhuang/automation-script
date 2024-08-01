@@ -1,4 +1,3 @@
-import requests
 from utils import CLIENT, send_email, format_usd_ntl, call_vb, fetch_market_price
 import time
 from pprint import pprint
@@ -29,17 +28,17 @@ def process_overview_sheet(row, workbook):
             return
         prx = float(data["price"])
         if prx < marketsell:
-            print(f"price from api:{prx} < marketsell:{marketsell}, proceeding step 5.2.2?")
+            print(f"price from api:{prx} < marketsell:{marketsell}, proceeding step 6.2.2?")
             send_email("Crypto-Binance-SellReject", CLIENT.generate_reject_email(sym, data["price"], marketsell, url, data), workbook)
         else:
-            print(f"price from api:{prx} >= marketsell:{marketsell}, proceeding step 5.2.3.1?")
+            print(f"price from api:{prx} >= marketsell:{marketsell}, proceeding step 6.2.3?")
             try:
                 order_detail = create_sell_order(pair, str_usdt_ntl)
                 if order_detail:
-                    print("proceeding step 5.2.3.2.2?")
+                    print("proceeding step 6.2.3.2.2?")
                     # checked that executedQty is the base qty
                     process_binance_sheet(workbook, _id, datetime.today(), order_detail["cummulativeQuoteQty"], order_detail["executedQty"])
-                    print("proceeding step 5.2.3.2.2.7?")
+                    print("proceeding step 6.2.3.2.2.7?")
                     send_email("Crypto-Binance-SellDone", CLIENT.generate_sell_email(sym, order_detail, str_usdt_ntl))
             except (BinanceOrderException, BinanceAPIException) as e:
                 print("Binance sell order error step 5.2.3.2.1, continue?")

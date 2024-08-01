@@ -40,7 +40,7 @@ def color_print(msg, color=None):
     else:
         print(Style.RESET_ALL+msg)
 
-def timestamp2date(ts:float, format="dd/mm/yy hh:mm:ss"):
+def timestamp2date(ts:float, format="%d/%m/%y %H:%M:%S"):
     dt = datetime.datetime.fromtimestamp(ts//1000)
     return dt.strftime(format)
 
@@ -97,14 +97,19 @@ if CONFIGS["TESTNET"] is True:
 
 class MyBNCClient(Client):
     sell_params = None
-
-    
+    buy_params = None
 
     def create_order(self, **params):
-        print(f"Creating sell order with parameters: {params}")
+        if params["side"]=="SELL":
+            print(f"Creating sell order with parameters: {params}")
+            self.sell_params = params
+        elif params["side"]=="BUY":
+            print(f"Creating sell order with parameters: {params}")
+            self.buy_params = params
+        else:
+            raise ValueError(f"side is illegal: {params['side']}")
         uri = self._create_api_uri("order", True, BaseClient.PUBLIC_API_VERSION)
-        print(f"Endpoing: {uri}")
-        self.sell_params = params
+        print(f"Endpoing: {uri}")    
         return super().create_order(**params)
     
     def generate_reject_email(self, symbol:str, price:str, ntl:str, endpoint:str, response:dict):
@@ -206,7 +211,7 @@ class MyBNCClient(Client):
             f"Qty:        {resp['executedQty']}",
             f"Date/Time:  {ts_date}\n"
             f"Sent:       {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}",
-            f"Parameters: {json.dumps(self.sell_params)}\n",
+            f"Parameters: {json.dumps(self.buy_params)}\n",
             f"Received:  {json.dumps(resp)}\n"
         ]
         return "\n".join(lines)

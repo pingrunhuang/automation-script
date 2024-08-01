@@ -4,11 +4,12 @@ import time
 
 
 if __name__ == "__main__":
+
     with read_and_save_workbook() as workbook:
         start = time.time()
-        # sell_module.run(workbook)
+        sell_module.run(workbook)
         reset_module.run(workbook)
-        # buy_module.run(workbook)
+        buy_module.run(workbook)
         sheet = workbook.sheets["Overview"]
         total_usd = sheet["AQ2"].value
         total_aed = sheet["AS2"].value

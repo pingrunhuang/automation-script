@@ -52,7 +52,7 @@ def reset(row, workbook):
                     process_binance_sheet(workbook, _id, datetime.today(), order_detail["cummulativeQuoteQty"], order_detail["executedQty"])
                     
             except (BinanceOrderException, BinanceAPIException) as e:
-                print("Binance sell order error step 5.2.3.2.1, continue?")
+                print("Binance sell order error step 6.2.3.2.1, continue?")
                 send_email("Crypto-Binance-ResetOrderError", CLIENT.generate_order_error_mail(e.message), workbook)
 
     print("######################################################################")

@@ -6,6 +6,7 @@ from xlwings import Book, Sheet
 from binance.exceptions import BinanceAPIException, BinanceOrderException
 
 def buy(row, workbook):
+    print(f"checking row {row}")
     sheet = workbook.sheets["Overview"]
     exch = sheet[f"AG{row}"].value
     AN23 = sheet[f"AN23"].value
@@ -29,12 +30,12 @@ def buy(row, workbook):
                 try:
                     order_detail = create_buy_order(pair, columnI)
                     if order_detail:
-                        print("proceeding step 5.2.3.2.2.1?")
+                        print("proceeding step 6.2.3.2.2.1?")
                         send_email("Crypto-Binance-BuyDone", CLIENT.generate_buy_email(sym, order_detail, columnI))
-                        print("processing step 5.2.3.2.2.2?")
+                        print("processing step 6.2.3.2.2.2?")
                         process_binance_sheet(workbook, _id, datetime.today(), order_detail["cummulativeQuoteQty"], order_detail["executedQty"])
                 except (BinanceOrderException, BinanceAPIException) as e:
-                    print("Binance buy order error step 5.2.3.2.1, continue?")
+                    print("Binance buy order error step 6.2.3.2.1, continue?")
                     send_email("Crypto-Binance-BuyOrderError", CLIENT.generate_order_error_mail(e.message), workbook)
         else:
             print("AN23 less then columnI")
@@ -48,6 +49,7 @@ def run(workbook):
     sheet = workbook.sheets["Overview"]
     row = 2
     while sheet[f"C{row}"].value is not None:
+
         buy(row, workbook)
         row+=1
 
