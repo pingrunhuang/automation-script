@@ -17,4 +17,4 @@ if __name__ == "__main__":
         aj_usdt = sheet["AN23"].value
         body = CLIENT.generate_balance_email(int(total_usd), int(total_aed), pl_pct, aj_usdt, start)
         send_email("Crypto-Binance-End", body)
-        print("Finished buy module")
+        print("Finished all modules")

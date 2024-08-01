@@ -16,6 +16,7 @@ def run(workbook):
     else:
         row = 2
         while sheet[f"C{row}"].value is not None:
+            print(f"checking row {row}")
             if sheet[f"P{row}"].value==100:
                 reset(row, workbook)
             row+=1

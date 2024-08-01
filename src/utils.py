@@ -1,3 +1,4 @@
+from pathlib import Path
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -7,7 +8,7 @@ from binance.client import BaseClient
 from colorama import Fore, Style
 from requests.sessions import Session as Session
 import yaml
-from binance import Client
+from binance.client import Client
 import xlwings as xw
 import json
 import datetime
@@ -20,6 +21,38 @@ with open("config.yaml") as f:
 # excel_path = "D:\Google Drive\AJ\Excel"
 excel_path = CONFIGS["EXCEL_PATH"]
 
+PROXY = CONFIGS.get("PROXY", {})
+
+if PROXY:
+    def send_email(subject:str, body:str, workbook=None):
+        print(subject)
+        print(body)
+else:
+    SMTP_SERVER = smtplib.SMTP('smtp.gmail.com', 587)  # Specify your SMTP server and port
+    SMTP_SERVER.starttls()  # Secure the connection
+    SMTP_SERVER.login(CONFIGS["EMAIL_FROM"], CONFIGS["EMAIL_PASS"])
+    def send_email(subject:str, body:str, workbook=None):
+        # Create the email message
+        to_emails = CONFIGS["EMAIL_TO"]
+        msg = MIMEMultipart()
+        msg['From'] = CONFIGS["EMAIL_FROM"]
+        msg['To'] = ', '.join(to_emails)
+        msg['Subject'] = subject
+
+        # Attach the body with the msg instance
+        msg.attach(MIMEText(body, 'plain'))
+
+        # Set up the server and send the email
+        try:
+            
+            text = msg.as_string()
+            SMTP_SERVER.sendmail(CONFIGS["EMAIL_FROM"], to_emails, text)
+            print("Email sent successfully!")
+        except Exception as e:
+            print(f"Failed to send email: {str(e)}")
+        finally:
+            if workbook:
+                call_vb(workbook)
 
 
 @contextmanager
@@ -30,6 +63,9 @@ def read_and_save_workbook():
     workbook.save()
     workbook.close()
     app.kill()
+    if not PROXY:
+        SMTP_SERVER.close()
+
 
 
 def color_print(msg, color=None):
@@ -44,33 +80,8 @@ def timestamp2date(ts:float, format="%d/%m/%y %H:%M:%S"):
     dt = datetime.datetime.fromtimestamp(ts//1000)
     return dt.strftime(format)
 
-def send_email(subject:str, body:str, workbook=None):
-    # Create the email message
-    password = CONFIGS["EMAIL_PASS"]
-    from_email = CONFIGS["EMAIL_FROM"]
-    to_emails = CONFIGS["EMAIL_TO"]
-    msg = MIMEMultipart()
-    msg['From'] = from_email
-    msg['To'] = ', '.join(to_emails)
-    msg['Subject'] = subject
 
-    # Attach the body with the msg instance
-    msg.attach(MIMEText(body, 'plain'))
 
-    # Set up the server and send the email
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)  # Specify your SMTP server and port
-        server.starttls()  # Secure the connection
-        server.login(from_email, password)
-        text = msg.as_string()
-        server.sendmail(from_email, to_emails, text)
-        server.quit()
-        print("Email sent successfully!")
-    except Exception as e:
-        print(f"Failed to send email: {str(e)}")
-    finally:
-        if workbook:
-            call_vb(workbook)
 
 def format_usd_ntl(ntl:str)->float:
     # return float(ntl.replace("US$", ""))
@@ -98,6 +109,12 @@ if CONFIGS["TESTNET"] is True:
 class MyBNCClient(Client):
     sell_params = None
     buy_params = None
+
+    def _get_request_kwargs(self, method, signed: bool, force_params: bool = False, **kwargs):
+        kwargs = super()._get_request_kwargs(method, signed, force_params, **kwargs)
+        if PROXY:
+            kwargs.update({"proxies": PROXY})
+        return kwargs
 
     def create_order(self, **params):
         if params["side"]=="SELL":
@@ -241,4 +258,3 @@ def fetch_market_price(pair, workbook=None):
 
 CLIENT = MyBNCClient(CONFIGS["API_KEY"], CONFIGS["SECRET_KEY"], testnet=CONFIGS["TESTNET"])
 
-PROXY = CONFIGS.get("PROXY", {})
