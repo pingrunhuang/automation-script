@@ -18,13 +18,13 @@ def buy(row, workbook):
     if columnI!="-" and exch=="Binance":
         if AN23 >= columnI:
             print("AN23 greater than columnI")
-            data, url = fetch_market_price(pair, workbook)
+            data, url = fetch_market_price(pair, "buy")
             if not data:
                 return
             prx = float(data["price"])
             if prx > marketBuy:
                 print(f"price from api:{prx} > marketBuy:{marketBuy}")
-                send_email("Crypto-Binance-BuyReject", CLIENT.generate_reject_email(sym, data["price"], marketBuy, url, data), workbook)
+                send_email("Crypto-Binance-BuyReject", CLIENT.generate_reject_email(sym, data["price"], marketBuy, url, data))
             else:
                 print(f"price from api:{prx} <= marketBuy:{marketBuy}")
                 try:
@@ -36,7 +36,7 @@ def buy(row, workbook):
                         process_binance_sheet(workbook, _id, datetime.today(), order_detail["cummulativeQuoteQty"], order_detail["executedQty"])
                 except (BinanceOrderException, BinanceAPIException) as e:
                     print("Binance buy order error step 6.2.3.2.1, continue?")
-                    send_email("Crypto-Binance-BuyOrderError", CLIENT.generate_order_error_mail(e.message), workbook)
+                    send_email("Crypto-Binance-BuyOrderError", CLIENT.generate_order_error_mail(e.message))
         else:
             print("AN23 less then columnI")
             send_email("Crypto-Binance-BuyInsufficient", CLIENT.generate_buy_insufficient_email(sym, columnI, AN23))
@@ -45,11 +45,11 @@ def buy(row, workbook):
 
 def run(workbook):
     print("Running buy module")
-    call_vb(workbook)
+    
     sheet = workbook.sheets["Overview"]
     row = 2
     while sheet[f"C{row}"].value is not None:
-
+        call_vb(workbook)
         buy(row, workbook)
         row+=1
 

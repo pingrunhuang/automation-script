@@ -23,13 +23,13 @@ def process_overview_sheet(row, workbook):
         pair = f"{sym}USDT"
         print("proceeding step 5?")
         print(f"processing symbol={sym}")
-        data, url = fetch_market_price(pair, workbook)
+        data, url = fetch_market_price(pair)
         if not data:
             return
         prx = float(data["price"])
         if prx < marketsell:
             print(f"price from api:{prx} < marketsell:{marketsell}, proceeding step 6.2.2?")
-            send_email("Crypto-Binance-SellReject", CLIENT.generate_reject_email(sym, data["price"], marketsell, url, data), workbook)
+            send_email("Crypto-Binance-SellReject", CLIENT.generate_reject_email(sym, data["price"], marketsell, url, data))
         else:
             print(f"price from api:{prx} >= marketsell:{marketsell}, proceeding step 6.2.3?")
             try:
@@ -42,13 +42,14 @@ def process_overview_sheet(row, workbook):
                     send_email("Crypto-Binance-SellDone", CLIENT.generate_sell_email(sym, order_detail, str_usdt_ntl))
             except (BinanceOrderException, BinanceAPIException) as e:
                 print("Binance sell order error step 5.2.3.2.1, continue?")
-                send_email("Crypto-Binance-SellOrderError", CLIENT.generate_order_error_mail(e.message), workbook)
+                send_email("Crypto-Binance-SellOrderError", CLIENT.generate_order_error_mail(e.message))
 
 def run(workbook):
-    print("running sell module")
+    print("Running sell module")
     sheet = workbook.sheets["Overview"]
     row = 2
     while sheet[f"C{row}"].value is not None:
+        call_vb(workbook)
         process_overview_sheet(row, workbook)
         print("######################################################################")
         row+=1
@@ -89,7 +90,7 @@ def process_binance_sheet(workbook:Book, _id:str, dt:datetime, usdt_profit:str, 
     sheet.cells(row, 1).value = _id # column A
     sheet.cells(row, 4).value=to # column D 
     sheet.cells(row, 5).value=str_dt # column E
-    sheet.cells(row, 7).value=usdt_profit # column G
+    sheet.cells(row, 8).value=usdt_profit # column G
     sheet.cells(row, 10).value=-float(qty) # column J
     print("check binance sheet?")
     return row

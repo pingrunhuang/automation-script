@@ -24,14 +24,14 @@ excel_path = CONFIGS["EXCEL_PATH"]
 PROXY = CONFIGS.get("PROXY", {})
 
 if PROXY:
-    def send_email(subject:str, body:str, workbook=None):
+    def send_email(subject:str, body:str):
         print(subject)
         print(body)
 else:
     SMTP_SERVER = smtplib.SMTP('smtp.gmail.com', 587)  # Specify your SMTP server and port
     SMTP_SERVER.starttls()  # Secure the connection
     SMTP_SERVER.login(CONFIGS["EMAIL_FROM"], CONFIGS["EMAIL_PASS"])
-    def send_email(subject:str, body:str, workbook=None):
+    def send_email(subject:str, body:str):
         # Create the email message
         to_emails = CONFIGS["EMAIL_TO"]
         msg = MIMEMultipart()
@@ -47,12 +47,9 @@ else:
             
             text = msg.as_string()
             SMTP_SERVER.sendmail(CONFIGS["EMAIL_FROM"], to_emails, text)
-            print("Email sent successfully!")
+            print(f"Email sent successfully:{text}")
         except Exception as e:
             print(f"Failed to send email: {str(e)}")
-        finally:
-            if workbook:
-                call_vb(workbook)
 
 
 @contextmanager
@@ -76,11 +73,10 @@ def color_print(msg, color=None):
     else:
         print(Style.RESET_ALL+msg)
 
+
 def timestamp2date(ts:float, format="%d/%m/%y %H:%M:%S"):
     dt = datetime.datetime.fromtimestamp(ts//1000)
     return dt.strftime(format)
-
-
 
 
 def format_usd_ntl(ntl:str)->float:
@@ -138,8 +134,8 @@ class MyBNCClient(Client):
             f"Symbol:       {symbol}",
             f"Price:        {price}",
             f"Expd Price:   {ntl}\n",
-            f"Sent: {endpoint}\n",
-            f"Received: {json.dumps(response)}"
+            f"Sent:         {endpoint}\n",
+            f"Received:     {json.dumps(response)}"
         ]
         return "\n".join(lines)
 
@@ -151,9 +147,9 @@ class MyBNCClient(Client):
             f"Expd Sell-Profit: {columnMcell}", 
             f"Qty:              {resp['executedQty']}",
             f"Date/Time:        {ts_date}\n",
-            f"Sent:       {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}"
-            f"Parameters: {json.dumps(self.sell_params)}\n",
-            f"Received:  {json.dumps(resp)}"
+            f"Sent:             {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}"
+            f"Parameters:       {json.dumps(self.sell_params)}\n",
+            f"Received:         {json.dumps(resp)}"
         ]
         return "\n".join(lines)
 
@@ -165,9 +161,9 @@ class MyBNCClient(Client):
             f"Expd Sell-Reset:  {columnScell}", 
             f"Qty:              {resp['executedQty']}",
             f"Date/Time:        {ts_date}\n",
-            f"Sent:       {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}"
-            f"Parameters: {json.dumps(self.sell_params)}\n",
-            f"Received:  {json.dumps(resp)}"
+            f"Sent:             {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}"
+            f"Parameters:       {json.dumps(self.sell_params)}\n",
+            f"Received:         {json.dumps(resp)}"
         ]
         return "\n".join(lines)
 
@@ -178,8 +174,8 @@ class MyBNCClient(Client):
         - full details of 5.2.3.2
         """
         lines = [
-            f"Sent: {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}\n"
-            f"params: {json.dumps(self.sell_params)}\n",
+            f"Sent:     {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}\n"
+            f"params:   {json.dumps(self.sell_params)}\n",
             f"Received: {msg}"
         ]
         return "\n".join(lines)
@@ -191,16 +187,16 @@ class MyBNCClient(Client):
         print(f"Posting api: {url}, resp: {resp}")
         assert type(resp)==dict
         duration = time.time()-start_time
-        dur = datetime.timedelta(seconds=duration)
+        dur = duration_formating(duration)
         lines = [
             f"Total-USD:        {int(AQ2)}",
             f"Total-AED:        {int(AS2)}",
             f"P/L%:             {int(AQ4*100)}%",
             f"AJ-USDT:          {int(AN23)}",
             f"Binance-USDT:     {int(float(resp['free']))}\n",
-            f"Sent: {url}\n",
-            f"Received: {json.dumps(resp)}\n",
-            f"Runtime: {dur}"
+            f"Sent:             {url}\n",
+            f"Received:         {json.dumps(resp)}\n",
+            f"Runtime:          {dur}"
         ]
         return "\n".join(lines)
 
@@ -214,7 +210,7 @@ class MyBNCClient(Client):
 
     def generate_error_email(self, url, resp):
         lines = [
-            f"- Sent: {url}\n",
+            f"- Sent:     {url}\n",
             f"- Received: {json.dumps(resp)}"
         ]
         return "\n".join(lines)
@@ -227,14 +223,14 @@ class MyBNCClient(Client):
             f"Expd Buy:   {columnIcell}",
             f"Qty:        {resp['executedQty']}",
             f"Date/Time:  {ts_date}\n"
-            f"Sent:       {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}",
+            f"\nSent:     {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}",
             f"Parameters: {json.dumps(self.buy_params)}\n",
-            f"Received:  {json.dumps(resp)}\n"
+            f"\nReceived: {json.dumps(resp)}\n"
         ]
         return "\n".join(lines)
 
 
-def fetch_market_price(pair, workbook=None):
+def fetch_market_price(pair, module:str="sell"):
     url = f"https://api.binance.com/api/v1/ticker/price?symbol={pair}"
     print("proceeding step 6.1?")
     print(f"processing pair={pair}: url={url}")
@@ -252,9 +248,21 @@ def fetch_market_price(pair, workbook=None):
     except Exception as e:
         data = {"msg": str(e)}
         print(f"error fetching {pair} price: {data}, continue?")
-        send_email("Crypto-Binance-ResetQueryError", CLIENT.generate_error_email(url, data), workbook)
+        if module=="sell":
+            send_email("Crypto-Binance-SellQueryError", CLIENT.generate_error_email(url, data))
+        elif module=="reset":
+            send_email("Crypto-Binance-ResetQueryError", CLIENT.generate_error_email(url, data))
+        elif module=="buy":
+            send_email("Crypto-Binance-BuyQueryError", CLIENT.generate_error_email(url, data))
         return {}, ""
     
 
 CLIENT = MyBNCClient(CONFIGS["API_KEY"], CONFIGS["SECRET_KEY"], testnet=CONFIGS["TESTNET"])
 
+def duration_formating(duration:int):
+    dur = datetime.timedelta(seconds=duration)
+    days, seconds = dur.days, dur.seconds
+    hours = days * 24 + seconds // 3600
+    minutes = (seconds % 3600) // 60
+    seconds = seconds % 60
+    return f"{hours}:{minutes}:{seconds}"

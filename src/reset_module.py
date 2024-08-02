@@ -7,8 +7,7 @@ from xlwings import Book, Sheet
 from binance.exceptions import BinanceAPIException, BinanceOrderException
 
 def run(workbook):
-    print("running reset module")
-    call_vb(workbook)
+    print("Running reset module")
     sheet = workbook.sheets["Overview"]
     AS27 = sheet["AS27"].value
     if AS27 == 0 or AS27 is None:
@@ -17,6 +16,7 @@ def run(workbook):
         row = 2
         while sheet[f"C{row}"].value is not None:
             print(f"checking row {row}")
+            call_vb(workbook)
             if sheet[f"P{row}"].value==100:
                 reset(row, workbook)
             row+=1
@@ -34,13 +34,13 @@ def reset(row, workbook):
         sym = sheet[f"C{row}"].value
         marketsell = sheet[f"N{row}"].value
         pair = f"{sym}USDT"
-        data, url = fetch_market_price(pair, workbook)
+        data, url = fetch_market_price(pair, "reset")
         if not data:
             return
         prx = float(data["price"])
         if prx < marketsell:
             print(f"price from api:{prx} < marketsell:{marketsell}, proceeding step 6.2.2?")
-            send_email("Crypto-Binance-ResetReject", CLIENT.generate_reject_email(sym, data["price"], marketsell, url, data), workbook)
+            send_email("Crypto-Binance-ResetReject", CLIENT.generate_reject_email(sym, data["price"], marketsell, url, data))
         else:
             print(f"price from api:{prx} >= marketsell:{marketsell}, proceeding step 6.2.3.1?")
             try:
@@ -54,7 +54,7 @@ def reset(row, workbook):
                     
             except (BinanceOrderException, BinanceAPIException) as e:
                 print("Binance sell order error step 6.2.3.2.1, continue?")
-                send_email("Crypto-Binance-ResetOrderError", CLIENT.generate_order_error_mail(e.message), workbook)
+                send_email("Crypto-Binance-ResetOrderError", CLIENT.generate_order_error_mail(e.message))
 
     print("######################################################################")
 
@@ -95,7 +95,7 @@ def process_binance_sheet(workbook:Book, _id:str, dt:datetime, usdt_profit:str, 
     sheet.cells(row, 1).value = _id # column A
     sheet.cells(row, 4).value=to # column D 
     sheet.cells(row, 5).value=str_dt # column E
-    sheet.cells(row, 8).value=usdt_profit # column H
+    sheet.cells(row, 7).value=usdt_profit # column H
     sheet.cells(row, 10).value=-float(qty) # column J
     print("check binance sheet?")
     return row
