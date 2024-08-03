@@ -36,7 +36,7 @@ def buy(row, workbook):
                         process_binance_sheet(workbook, _id, datetime.today(), order_detail["cummulativeQuoteQty"], order_detail["executedQty"])
                 except (BinanceOrderException, BinanceAPIException) as e:
                     print("Binance buy order error step 6.2.3.2.1, continue?")
-                    send_email("Crypto-Binance-BuyOrderError", CLIENT.generate_order_error_mail(e.message))
+                    send_email("Crypto-Binance-BuyOrderError", CLIENT.generate_order_error_mail(e.message, "BUY"))
         else:
             print("AN23 less then columnI")
             send_email("Crypto-Binance-BuyInsufficient", CLIENT.generate_buy_insufficient_email(sym, columnI, AN23))

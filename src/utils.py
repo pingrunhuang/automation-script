@@ -167,15 +167,16 @@ class MyBNCClient(Client):
         ]
         return "\n".join(lines)
 
-    def generate_order_error_mail(self, msg:str):
+    def generate_order_error_mail(self, msg:str, side:str="SELL"):
         """
         send email with subject: “Crypto-Binance-SellOrderError”, Body:
         - line break
         - full details of 5.2.3.2
         """
+        assert side in ("BUY", "SELL")
         lines = [
             f"Sent:     {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}\n"
-            f"params:   {json.dumps(self.sell_params)}\n",
+            f"params:   {json.dumps(self.sell_params)}\n" if side=="SELL" else f"params:   {json.dumps(self.buy_params)}\n",
             f"Received: {msg}"
         ]
         return "\n".join(lines)

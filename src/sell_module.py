@@ -14,10 +14,10 @@ def process_overview_sheet(row, workbook):
     elif str_usdt_ntl=="-":
         print("Illegal number of quote qty")
     else:
-        print("called vb on step 3, continue?")
+        sym = sheet[f"C{row}"].value
+        print(f"called vb on step 3, checking {sym} at row={row}, continue?")
         call_vb(workbook)
         _id = sheet[f"A{row}"].value
-        sym = sheet[f"C{row}"].value
         print("Proceeding step 4?")
         marketsell = sheet[f"N{row}"].value
         pair = f"{sym}USDT"
