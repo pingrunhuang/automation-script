@@ -8,17 +8,19 @@ from binance.exceptions import BinanceAPIException, BinanceOrderException
 def buy(row, workbook):
     print(f"checking row {row}")
     sheet = workbook.sheets["Overview"]
-    exch = sheet[f"AG{row}"].value
-    AN23 = sheet[f"AN23"].value
+    exch = sheet[f"HA{row}"].value
+    # AN23 = sheet[f"AN23"].value
+    statsH2 = workbook.sheets["Stats"]["H2"].value
     columnI = sheet[f"I{row}"].value
     _id = sheet[f"A{row}"].value
     sym = sheet[f"C{row}"].value
     marketBuy = sheet[f"J{row}"].value
-    pair = f"{sym}USDT"
+
     if columnI!="-" and exch=="Binance":
-        if AN23 >= columnI:
-            print("AN23 greater than columnI")
-            data, url = fetch_market_price(pair, "buy")
+        call_vb(workbook)
+        if statsH2 >= columnI:
+            print("statsH2 greater than columnI")
+            data, url = fetch_market_price(sym, "buy")
             if not data:
                 return
             prx = float(data["price"])
@@ -28,34 +30,32 @@ def buy(row, workbook):
             else:
                 print(f"price from api:{prx} <= marketBuy:{marketBuy}")
                 try:
-                    order_detail = create_buy_order(pair, columnI)
+                    order_detail = create_buy_order(sym, columnI)
                     if order_detail:
                         print("proceeding step 6.2.3.2.2.1?")
-                        send_email("Crypto-Binance-BuyDone", CLIENT.generate_buy_email(sym, order_detail, columnI))
+                        send_email("Crypto-Binance-BuyDone", CLIENT.generate_buy_email(sym, order_detail, columnI, marketBuy))
                         print("processing step 6.2.3.2.2.2?")
                         process_binance_sheet(workbook, _id, datetime.today(), order_detail["cummulativeQuoteQty"], order_detail["executedQty"])
                 except (BinanceOrderException, BinanceAPIException) as e:
                     print("Binance buy order error step 6.2.3.2.1, continue?")
-                    send_email("Crypto-Binance-BuyOrderError", CLIENT.generate_order_error_mail(e.message, "BUY"))
+                    send_email("Crypto-Binance-BuyOrderError", CLIENT.generate_order_error_mail(sym, e.message, "BUY"))
         else:
-            print("AN23 less then columnI")
-            send_email("Crypto-Binance-BuyInsufficient", CLIENT.generate_buy_insufficient_email(sym, columnI, AN23))
+            print("statsH2 less then columnI")
+            send_email("Crypto-Binance-BuyInsufficient", CLIENT.generate_buy_insufficient_email(sym, columnI, statsH2))
     print("######################################################################")
     
 
 def run(workbook):
     print("Running buy module")
-    
     sheet = workbook.sheets["Overview"]
-    row = 2
+    row = 3
     while sheet[f"C{row}"].value is not None:
-        call_vb(workbook)
         buy(row, workbook)
         row+=1
 
 
-
-def create_buy_order(pair, quote_qty):
+def create_buy_order(sym, quote_qty):
+    pair = f"{sym}USDT"
     print(f"Creating buy order of {pair} with {quote_qty} and wait for 5 seconds...")
     time.sleep(5)
     resp = CLIENT.order_market_buy(symbol=pair, quoteOrderQty=format_usd_ntl(quote_qty))
@@ -88,7 +88,7 @@ def process_binance_sheet(workbook:Book, _id:str, dt:datetime, cummulativeQuoteQ
     str_dt = dt.strftime("%d-%b-%y")
     # find last row of a certain column
     # row = sheet.used_range.last_cell.row: this is used for the whole sheet
-    row = sheet.range("A1").end("down").row + 1
+    row = sheet.range("A3").end("down").row + 1
     sheet.cells(row, 1).value = _id # column A
     sheet.cells(row, 3).value=to # column C
     sheet.cells(row, 5).value=str_dt # column E

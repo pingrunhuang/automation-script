@@ -2,7 +2,6 @@ from pathlib import Path
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from contextlib import contextmanager
 from typing import Dict
 from binance.client import BaseClient
 from colorama import Fore, Style
@@ -23,25 +22,49 @@ excel_path = CONFIGS["EXCEL_PATH"]
 
 PROXY = CONFIGS.get("PROXY", {})
 
+def generate_table(lines):
+    html = """
+    <!DOCTYPE html>
+    <html>
+        <body>
+            <table>
+                <tbody>
+    """
+    for line in lines:
+        html += "<tr>"
+        for column in line:
+            html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: left;">{column}</td>'
+        html += "</tr>"
+    html += """
+            </tbody>
+        </table>
+      </body>
+    </html>
+    """
+    return html
+
 if PROXY:
-    def send_email(subject:str, body:str):
+    def send_email(subject, body="", html=""):
         print(subject)
         print(body)
+        print(html)
 else:
     SMTP_SERVER = smtplib.SMTP('smtp.gmail.com', 587)  # Specify your SMTP server and port
     SMTP_SERVER.starttls()  # Secure the connection
     SMTP_SERVER.login(CONFIGS["EMAIL_FROM"], CONFIGS["EMAIL_PASS"])
-    def send_email(subject:str, body:str):
+    def send_email(subject , html="", body=""):
         # Create the email message
         to_emails = CONFIGS["EMAIL_TO"]
-        msg = MIMEMultipart()
+        msg = MIMEMultipart("alternative")
         msg['From'] = CONFIGS["EMAIL_FROM"]
         msg['To'] = ', '.join(to_emails)
         msg['Subject'] = subject
 
         # Attach the body with the msg instance
-        msg.attach(MIMEText(body, 'plain'))
-
+        if body:
+            msg.attach(MIMEText(body, 'plain'))
+        if html:
+            msg.attach(MIMEText(html, 'html'))
         # Set up the server and send the email
         try:
             
@@ -52,17 +75,11 @@ else:
             print(f"Failed to send email: {str(e)}")
 
 
-@contextmanager
-def read_and_save_workbook():
-    workbook = xw.Book(excel_path)
-    app = workbook.app
-    yield workbook
-    workbook.save()
-    workbook.close()
-    app.kill()
-    if not PROXY:
-        SMTP_SERVER.close()
-
+def format_numbers(num)->str:
+    # if type(num) is str:
+    #     num = float(num)
+    # return "%.2f" % num
+    return num
 
 
 def color_print(msg, color=None):
@@ -87,9 +104,9 @@ def format_currency(ntl:float)->str:
     return "US${:10,.8f}".format(ntl)
 
 
-def call_vb(wb:xw.Book):
-    print("Calling vba......")
-    macro = wb.macro("Sheet9.BinanceRate")
+def call_vb(wb:xw.Book, macro_name="Sheet9.BinanceRate"):
+    print(f"Calling vba {macro_name}......")
+    macro = wb.macro(macro_name)
     try:
         macro()
     except Exception as e:
@@ -122,7 +139,7 @@ class MyBNCClient(Client):
         else:
             raise ValueError(f"side is illegal: {params['side']}")
         uri = self._create_api_uri("order", True, BaseClient.PUBLIC_API_VERSION)
-        print(f"Endpoing: {uri}")    
+        print(f"Endpoint: {uri}")    
         return super().create_order(**params)
     
     def generate_reject_email(self, symbol:str, price:str, ntl:str, endpoint:str, response:dict):
@@ -131,43 +148,17 @@ class MyBNCClient(Client):
         if this is for sell: ntl is columnN
         """
         lines = [
-            f"Symbol:       {symbol}",
-            f"Price:        {price}",
-            f"Expd Price:   {ntl}\n",
-            f"Sent:         {endpoint}\n",
-            f"Received:     {json.dumps(response)}"
+            ("Symbol", symbol),
+            ("Price", format_numbers(price)),
+            ("Expd Price",format_numbers(ntl)),
+            ("",""),
+            ("Sent", endpoint),
+            ("",""),
+            ("Received", json.dumps(response))
         ]
-        return "\n".join(lines)
+        return generate_table(lines)
 
-    def generate_sell_email(self, sym, resp:dict, columnMcell:str):
-        ts_date = timestamp2date(float(resp['transactTime']))
-        lines = [
-            f"Symbol:           {sym}",
-            f"Sell-Profit:      {resp['cummulativeQuoteQty']}", 
-            f"Expd Sell-Profit: {columnMcell}", 
-            f"Qty:              {resp['executedQty']}",
-            f"Date/Time:        {ts_date}\n",
-            f"Sent:             {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}"
-            f"Parameters:       {json.dumps(self.sell_params)}\n",
-            f"Received:         {json.dumps(resp)}"
-        ]
-        return "\n".join(lines)
-
-    def generate_reset_email(self, sym, resp:dict, columnScell:str):
-        ts_date = timestamp2date(float(resp['transactTime']))
-        lines = [
-            f"Symbol:           {sym}",
-            f"Sell-Reset:       {resp['cummulativeQuoteQty']}", 
-            f"Expd Sell-Reset:  {columnScell}", 
-            f"Qty:              {resp['executedQty']}",
-            f"Date/Time:        {ts_date}\n",
-            f"Sent:             {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}"
-            f"Parameters:       {json.dumps(self.sell_params)}\n",
-            f"Received:         {json.dumps(resp)}"
-        ]
-        return "\n".join(lines)
-
-    def generate_order_error_mail(self, msg:str, side:str="SELL"):
+    def generate_order_error_mail(self, sym:str, msg:str, side:str="SELL"):
         """
         send email with subject: “Crypto-Binance-SellOrderError”, Body:
         - line break
@@ -175,11 +166,13 @@ class MyBNCClient(Client):
         """
         assert side in ("BUY", "SELL")
         lines = [
-            f"Sent:     {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}\n"
-            f"params:   {json.dumps(self.sell_params)}\n" if side=="SELL" else f"params:   {json.dumps(self.buy_params)}\n",
-            f"Received: {msg}"
+            ("Symbol", sym),
+            ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)), 
+            ("params", json.dumps(self.sell_params) if side=="SELL" else json.dumps(self.buy_params)),
+            ("",""),
+            ("Received", msg)
         ]
-        return "\n".join(lines)
+        return generate_table(lines)
 
 
     def generate_balance_email(self, AQ2, AS2, AQ4, AN23, start_time):
@@ -190,48 +183,125 @@ class MyBNCClient(Client):
         duration = time.time()-start_time
         dur = duration_formating(duration)
         lines = [
-            f"Total-USD:        {int(AQ2)}",
-            f"Total-AED:        {int(AS2)}",
-            f"P/L%:             {int(AQ4*100)}%",
-            f"AJ-USDT:          {int(AN23)}",
-            f"Binance-USDT:     {int(float(resp['free']))}\n",
-            f"Sent:             {url}\n",
-            f"Received:         {json.dumps(resp)}\n",
-            f"Runtime:          {dur}"
+            ("Total-USD", int(AQ2)),
+            ("Total-AED", int(AS2)),
+            ("P/L%", int(AQ4*100)),
+            ("AJ-USDT", int(AN23)),
+            ("Binance-USDT", int(float(resp['free']))),
+            ("",""),
+            ("Sent", url),
+            ("",""),
+            ("Received", json.dumps(resp)),
+            ("",""),
+            ("Runtime", dur)
         ]
-        return "\n".join(lines)
+        return generate_table(lines)
 
     def generate_buy_insufficient_email(self, columnC, ColumnI, AN23):
         lines =[
-            f"Symbol: {columnC}",
-            f"Buy:    {ColumnI}",
-            f"Cash:   {AN23}"
+            ("Symbol", columnC),
+            ("Buy", ColumnI),
+            ("Cash", AN23)
         ]
-        return "\n".join(lines)
+        return generate_table(lines)
 
-    def generate_error_email(self, url, resp):
+    def generate_min_insufficient_email(self, columnC, columnH, _min):
         lines = [
-            f"- Sent:     {url}\n",
-            f"- Received: {json.dumps(resp)}"
+            ("Symbol", columnC),
+            ("Min", columnH),
+            ("Cash", _min)
         ]
-        return "\n".join(lines)
+        return generate_table(lines)
+
+    def generate_error_email(self, symbol, url, resp):
+        lines = [
+            ("Symbol", symbol),
+            ("",""),
+            ("Sent", url),
+            ("",""),
+            ("Received", json.dumps(resp))
+        ]
+        return generate_table(lines)
     
-    def generate_buy_email(self, sym, resp:dict, columnIcell:str):
+    def generate_buy_email(self, sym, resp:dict, columnIcell:str, columnJcell:str):
         ts_date = timestamp2date(float(resp['transactTime']))
+        prx = resp["fills"][0]["price"]
         lines = [
-            f"Symbol:     {sym}",
-            f"Buy         {resp['cummulativeQuoteQty']}",
-            f"Expd Buy:   {columnIcell}",
-            f"Qty:        {resp['executedQty']}",
-            f"Date/Time:  {ts_date}\n"
-            f"\nSent:     {self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)}",
-            f"Parameters: {json.dumps(self.buy_params)}\n",
-            f"\nReceived: {json.dumps(resp)}\n"
+            ("Symbol", sym),
+            ("Buy", format_numbers(resp['cummulativeQuoteQty'])),
+            ("Expd Buy", format_numbers(columnIcell)),
+            ("Qty", format_numbers(resp['executedQty'])),
+            ("Date/Time", ts_date),
+            ("Expd Price", columnJcell),
+            ("Price", prx),
+            ("",""),
+            ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
+            ("Parameters", json.dumps(self.buy_params)),
+            ("",""),
+            ("Received", json.dumps(resp))
         ]
-        return "\n".join(lines)
+        return generate_table(lines)
+    
+    def generate_min_email(self, sym, resp:dict, columnHcell:str, columnJcell:str):
+        ts_date = timestamp2date(float(resp['transactTime'])) 
+        prx = resp["fills"][0]["price"]
+        lines = [
+            ("Symbol", sym),
+            ("Min", format_numbers(resp['cummulativeQuoteQty'])),
+            ("Expd Min", format_numbers(columnHcell)),
+            ("Qty", format_numbers(resp['executedQty'])),
+            ("Date/Time", ts_date),
+            ("Expd Price", columnJcell),
+            ("Price", prx),
+            ("",""),
+            ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
+            ("Parameters", json.dumps(self.buy_params)),
+            ("",""),
+            ("Received", json.dumps(resp))
+        ]
+        return generate_table(lines)
+    
+    def generate_sell_email(self, sym, resp:dict, columnMcell:str, columnNcell:str):
+        ts_date = timestamp2date(float(resp['transactTime']))
+        prx = resp["fills"][0]["price"]
+        lines = [
+            ("Symbol", sym),
+            ("Sell-Profit", format_numbers(resp['cummulativeQuoteQty'])), 
+            ("Expd Sell-Profit", format(columnMcell)), 
+            ("Qty", format_numbers(resp['executedQty'])),
+            ("Date/Time", ts_date),
+            ("Expd Price", columnNcell),
+            ("Price", prx),
+            ("",""),
+            ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
+            ("Parameters", json.dumps(self.sell_params)),
+            ("",""),
+            ("Received", json.dumps(resp))
+        ]
+        return generate_table(lines)
+
+    def generate_reset_email(self, sym, resp:dict, columnScell:str, columnNcell:str):
+        ts_date = timestamp2date(float(resp['transactTime']))
+        prx = resp["fills"][0]["price"]
+        lines = [
+            ("Symbol", sym),
+            ("Sell-Reset", format_numbers(resp['cummulativeQuoteQty'])), 
+            ("Expd Sell-Reset", columnScell), 
+            ("Qty", format_numbers(resp['executedQty'])),
+            ("Date/Time", ts_date),
+            ("Expd Price", columnNcell),
+            ("Price", prx),
+            ("",""),
+            ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
+            ("Parameters", json.dumps(self.sell_params)),
+            ("",""),
+            ("Received", json.dumps(resp))
+        ]
+        return generate_table(lines)
 
 
-def fetch_market_price(pair, module:str="sell"):
+def fetch_market_price(sym, module:str="sell"):
+    pair = f"{sym}USDT"
     url = f"https://api.binance.com/api/v1/ticker/price?symbol={pair}"
     print("proceeding step 6.1?")
     print(f"processing pair={pair}: url={url}")
@@ -250,11 +320,13 @@ def fetch_market_price(pair, module:str="sell"):
         data = {"msg": str(e)}
         print(f"error fetching {pair} price: {data}, continue?")
         if module=="sell":
-            send_email("Crypto-Binance-SellQueryError", CLIENT.generate_error_email(url, data))
+            send_email("Crypto-Binance-SellQueryError", CLIENT.generate_error_email(sym, url, data))
         elif module=="reset":
-            send_email("Crypto-Binance-ResetQueryError", CLIENT.generate_error_email(url, data))
+            send_email("Crypto-Binance-ResetQueryError", CLIENT.generate_error_email(sym, url, data))
         elif module=="buy":
-            send_email("Crypto-Binance-BuyQueryError", CLIENT.generate_error_email(url, data))
+            send_email("Crypto-Binance-BuyQueryError", CLIENT.generate_error_email(sym, url, data))
+        elif module=="min":
+            send_email("Crypto-Binance-MinQueryError", CLIENT.generate_error_email(sym, url, data))
         return {}, ""
     
 
@@ -262,8 +334,15 @@ CLIENT = MyBNCClient(CONFIGS["API_KEY"], CONFIGS["SECRET_KEY"], testnet=CONFIGS[
 
 def duration_formating(duration:int):
     dur = datetime.timedelta(seconds=duration)
-    days, seconds = dur.days, dur.seconds
-    hours = days * 24 + seconds // 3600
+    seconds = dur.seconds
     minutes = (seconds % 3600) // 60
     seconds = seconds % 60
-    return f"{hours}:{minutes}:{seconds}"
+    if minutes<10:
+        s_minutes = f"0{minutes}"
+    else:
+        s_minutes = str(minutes)
+    if seconds<10:
+        s_seconds = f"0{seconds}"
+    else:
+        s_seconds = str(seconds)
+    return f"{s_minutes}:{s_seconds}"
