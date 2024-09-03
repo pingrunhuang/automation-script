@@ -142,12 +142,13 @@ class MyBNCClient(Client):
         print(f"Endpoint: {uri}")    
         return super().create_order(**params)
     
-    def generate_reject_email(self, symbol:str, price:str, ntl:str, endpoint:str, response:dict):
+    def generate_reject_email(self, symbol:str, price:str, ntl:str, endpoint:str, response:dict, _id):
         """
         if this is for buy: ntl is columnJ
         if this is for sell: ntl is columnN
         """
         lines = [
+            ("ID", _id),
             ("Symbol", symbol),
             ("Price", format_numbers(price)),
             ("Expd Price",format_numbers(ntl)),
@@ -158,7 +159,7 @@ class MyBNCClient(Client):
         ]
         return generate_table(lines)
 
-    def generate_order_error_mail(self, sym:str, msg:str, side:str="SELL"):
+    def generate_order_error_mail(self, sym:str, msg:str, _id:str, side:str="SELL"):
         """
         send email with subject: “Crypto-Binance-SellOrderError”, Body:
         - line break
@@ -166,6 +167,7 @@ class MyBNCClient(Client):
         """
         assert side in ("BUY", "SELL")
         lines = [
+            ("ID", _id),
             ("Symbol", sym),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)), 
             ("params", json.dumps(self.sell_params) if side=="SELL" else json.dumps(self.buy_params)),
@@ -197,16 +199,18 @@ class MyBNCClient(Client):
         ]
         return generate_table(lines)
 
-    def generate_buy_insufficient_email(self, columnC, ColumnI, AN23):
+    def generate_buy_insufficient_email(self, columnC, ColumnI, AN23, _id):
         lines =[
+            ("ID", _id),
             ("Symbol", columnC),
             ("Buy", ColumnI),
             ("Cash", AN23)
         ]
         return generate_table(lines)
 
-    def generate_min_insufficient_email(self, columnC, columnH, _min):
+    def generate_min_insufficient_email(self, columnC, columnH, _min, _id):
         lines = [
+            ("ID", _id),
             ("Symbol", columnC),
             ("Min", columnH),
             ("Cash", _min)
@@ -223,84 +227,98 @@ class MyBNCClient(Client):
         ]
         return generate_table(lines)
     
-    def generate_buy_email(self, sym, resp:dict, columnIcell:str, columnJcell:str):
+    def _generate_buy_email(self, sym, resp:dict, columnIcell:str, columnJcell:str):
         ts_date = timestamp2date(float(resp['transactTime']))
         prx = resp["fills"][0]["price"]
         lines = [
             ("Symbol", sym),
             ("Buy", format_numbers(resp['cummulativeQuoteQty'])),
             ("Expd Buy", format_numbers(columnIcell)),
+            ("Price", prx),
+            ("Expd Price", columnJcell),
             ("Qty", format_numbers(resp['executedQty'])),
             ("Date/Time", ts_date),
-            ("Expd Price", columnJcell),
-            ("Price", prx),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
             ("Parameters", json.dumps(self.buy_params)),
             ("",""),
             ("Received", json.dumps(resp))
         ]
-        return generate_table(lines)
+        return lines
     
-    def generate_min_email(self, sym, resp:dict, columnHcell:str, columnJcell:str):
+    def _generate_min_email(self, sym, resp:dict, columnHcell:str, columnJcell:str):
         ts_date = timestamp2date(float(resp['transactTime'])) 
         prx = resp["fills"][0]["price"]
         lines = [
             ("Symbol", sym),
             ("Min", format_numbers(resp['cummulativeQuoteQty'])),
             ("Expd Min", format_numbers(columnHcell)),
+            ("Price", prx),
+            ("Expd Price", columnJcell),
             ("Qty", format_numbers(resp['executedQty'])),
             ("Date/Time", ts_date),
-            ("Expd Price", columnJcell),
-            ("Price", prx),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
             ("Parameters", json.dumps(self.buy_params)),
             ("",""),
             ("Received", json.dumps(resp))
         ]
-        return generate_table(lines)
+        return lines
     
-    def generate_sell_email(self, sym, resp:dict, columnMcell:str, columnNcell:str):
+    def _generate_sell_email(self, sym, resp:dict, columnMcell:str, columnNcell:str):
         ts_date = timestamp2date(float(resp['transactTime']))
         prx = resp["fills"][0]["price"]
         lines = [
             ("Symbol", sym),
             ("Sell-Profit", format_numbers(resp['cummulativeQuoteQty'])), 
             ("Expd Sell-Profit", format(columnMcell)), 
+            ("Price", prx),
+            ("Expd Price", columnNcell),
             ("Qty", format_numbers(resp['executedQty'])),
             ("Date/Time", ts_date),
-            ("Expd Price", columnNcell),
-            ("Price", prx),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
             ("Parameters", json.dumps(self.sell_params)),
             ("",""),
             ("Received", json.dumps(resp))
         ]
-        return generate_table(lines)
+        return lines
 
-    def generate_reset_email(self, sym, resp:dict, columnScell:str, columnNcell:str):
+    def _generate_reset_email(self, sym, resp:dict, columnScell:str, columnNcell:str):
         ts_date = timestamp2date(float(resp['transactTime']))
         prx = resp["fills"][0]["price"]
         lines = [
             ("Symbol", sym),
             ("Sell-Reset", format_numbers(resp['cummulativeQuoteQty'])), 
             ("Expd Sell-Reset", columnScell), 
+            ("Price", prx),
+            ("Expd Price", columnNcell),
             ("Qty", format_numbers(resp['executedQty'])),
             ("Date/Time", ts_date),
-            ("Expd Price", columnNcell),
-            ("Price", prx),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
             ("Parameters", json.dumps(self.sell_params)),
             ("",""),
             ("Received", json.dumps(resp))
         ]
+        return lines
+
+    def generate_done_email(self, sym, resp, qty, market_price, email_prefix, _id):
+        lines = [("ID", _id)]
+        match email_prefix:
+            case "BUY-MORE":
+                func = self._generate_buy_email
+            case "BUY-MIN":
+                func = self._generate_min_email
+            case "SELL-PROFIT":
+                func = self._generate_sell_email
+            case "SELL-RESET":
+                func = self._generate_reset_email
+        lines += func(sym, resp, qty, market_price)
         return generate_table(lines)
 
 
-def fetch_market_price(sym, module:str="sell"):
+def fetch_market_price(sym, email_prefix:str):
     pair = f"{sym}USDT"
     url = f"https://api.binance.com/api/v1/ticker/price?symbol={pair}"
     print("proceeding step 6.1?")
@@ -319,14 +337,7 @@ def fetch_market_price(sym, module:str="sell"):
     except Exception as e:
         data = {"msg": str(e)}
         print(f"error fetching {pair} price: {data}, continue?")
-        if module=="sell":
-            send_email("Crypto-Binance-SellQueryError", CLIENT.generate_error_email(sym, url, data))
-        elif module=="reset":
-            send_email("Crypto-Binance-ResetQueryError", CLIENT.generate_error_email(sym, url, data))
-        elif module=="buy":
-            send_email("Crypto-Binance-BuyQueryError", CLIENT.generate_error_email(sym, url, data))
-        elif module=="min":
-            send_email("Crypto-Binance-MinQueryError", CLIENT.generate_error_email(sym, url, data))
+        send_email(f"Crypto-Binance-{email_prefix}-QueryError", CLIENT.generate_error_email(sym, url, data))
         return {}, ""
     
 

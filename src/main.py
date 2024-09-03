@@ -1,5 +1,5 @@
 import utils
-import buy_module, sell_module, reset_module, min_module
+import buy_more_module, sell_profit_module, sell_reset_module, buy_min_module
 import time
 import xlwings as xw
 import traceback
@@ -14,10 +14,10 @@ if __name__ == "__main__":
         sheet = workbook.sheets["Stats"]
         statsF16 = sheet["F16"].value
         float(statsF16)
-        sell_module.run(workbook)
-        reset_module.run(workbook)
-        min_module.run(workbook)
-        buy_module.run(workbook)
+        sell_profit_module.run(workbook)
+        sell_reset_module.run(workbook)
+        buy_min_module.run(workbook)
+        buy_more_module.run(workbook)
         sheet = workbook.sheets["Stats"]
         total_usd = sheet["F16"].value
         total_aed = sheet["F17"].value
