@@ -65,7 +65,8 @@ class BaseModule(ABC):
                 try:
                     order_detail = self.create_order(sym, qty, side)
                     if order_detail:
+                        executed_qty = sum([float(entry['qty'])-float(entry['commission']) for entry in order_detail["fills"]])
                         send_email(f"Crypto-Binance-{email_prefix}-Done", CLIENT.generate_done_email(sym, order_detail, qty, market_price, email_prefix, _id))
-                        self.process_binance_sheet(_id, datetime.today(), order_detail["cummulativeQuoteQty"], order_detail["executedQty"], side)
+                        self.process_binance_sheet(_id, datetime.today(), order_detail["cummulativeQuoteQty"], executed_qty, side)
                 except (BinanceOrderException, BinanceAPIException) as e:
                     send_email(f"Crypto-Binance-{email_prefix}-OrderError", CLIENT.generate_order_error_mail(sym, e.message, _id, side))

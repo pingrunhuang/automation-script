@@ -177,7 +177,7 @@ class MyBNCClient(Client):
         return generate_table(lines)
 
 
-    def generate_balance_email(self, AQ2, AS2, AQ4, AN23, start_time):
+    def generate_balance_email(self, AQ2:str, AS2:str, AQ4:str, AN23:str, statsC15:str, start_time:float):
         url = self._create_api_uri("account", signed=False, version=BaseClient.PUBLIC_API_VERSION)
         resp = self.get_asset_balance("USDT")
         print(f"Posting api: {url}, resp: {resp}")
@@ -185,11 +185,12 @@ class MyBNCClient(Client):
         duration = time.time()-start_time
         dur = duration_formating(duration)
         lines = [
-            ("Total-USD", int(AQ2)),
-            ("Total-AED", int(AS2)),
-            ("P/L%", int(AQ4*100)),
-            ("AJ-USDT", int(AN23)),
-            ("Binance-USDT", int(float(resp['free']))),
+            ("Total-USD", "USD.%.f"%int(AQ2)),
+            ("Total-AED", "AED.%.f"%int(AS2)),
+            ("P/L%", "{:.1f%}".format(float(AQ4))), # 100 percent format
+            ("Profit", "USD.%.f"%int(statsC15)),
+            ("AJ-USDT", "USDT.%.f"%int(AN23)),
+            ("Binance-USDT", "USDT.%.f"%float(resp['free'])),
             ("",""),
             ("Sent", url),
             ("",""),
