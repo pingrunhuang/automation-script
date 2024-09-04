@@ -15,8 +15,6 @@ if __name__ == "__main__":
         statsF16 = sheet["F16"].value
         float(statsF16)
         statsC15 = sheet["C15"].value
-        sell_profit_module.run(workbook)
-        sell_reset_module.run(workbook)
         buy_min_module.run(workbook)
         buy_more_module.run(workbook)
         sheet = workbook.sheets["Stats"]

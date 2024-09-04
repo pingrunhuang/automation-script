@@ -187,7 +187,7 @@ class MyBNCClient(Client):
         lines = [
             ("Total-USD", "USD.%.f"%int(AQ2)),
             ("Total-AED", "AED.%.f"%int(AS2)),
-            ("P/L%", "{:.1f%}".format(float(AQ4))), # 100 percent format
+            ("P/L%", "{:.1%}".format(float(AQ4))), # 100 percent format
             ("Profit", "USD.%.f"%int(statsC15)),
             ("AJ-USDT", "USDT.%.f"%int(AN23)),
             ("Binance-USDT", "USDT.%.f"%float(resp['free'])),
@@ -307,13 +307,13 @@ class MyBNCClient(Client):
     def generate_done_email(self, sym, resp, qty, market_price, email_prefix, _id):
         lines = [("ID", _id)]
         match email_prefix:
-            case "BUY-MORE":
+            case "Buy-More":
                 func = self._generate_buy_email
-            case "BUY-MIN":
+            case "Buy-Min":
                 func = self._generate_min_email
-            case "SELL-PROFIT":
+            case "Sell-Profit":
                 func = self._generate_sell_email
-            case "SELL-RESET":
+            case "Sell-Reset":
                 func = self._generate_reset_email
         lines += func(sym, resp, qty, market_price)
         return generate_table(lines)

@@ -3,8 +3,13 @@ from utils import send_email, CLIENT
 
 class MinModule(BaseModule):
     def process_row(self, row: int):
-        statsH2 = self.workbook.sheets["Stats"]["H2"].value
-        columnH = self.sheet[f"H{row}"].value
+        statsH2 = float(self.workbook.sheets["Stats"]["H2"].value)
+        try:
+            columnH = float(self.sheet[f"H{row}"].value)
+        except:
+            print(f"column H{row} is not a number, continue...")
+            return
+        
         sym = self.sheet[f"C{row}"].value
         prefix = "Buy-Min"
         _id = self.sheet[f"A{row}"].value
