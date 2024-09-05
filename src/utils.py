@@ -43,36 +43,36 @@ def generate_table(lines):
     """
     return html
 
-if PROXY:
-    def send_email(subject, body="", html=""):
-        print(subject)
-        print(body)
-        print(html)
-else:
-    SMTP_SERVER = smtplib.SMTP('smtp.gmail.com', 587)  # Specify your SMTP server and port
-    SMTP_SERVER.starttls()  # Secure the connection
-    SMTP_SERVER.login(CONFIGS["EMAIL_FROM"], CONFIGS["EMAIL_PASS"])
-    def send_email(subject , html="", body=""):
-        # Create the email message
-        to_emails = CONFIGS["EMAIL_TO"]
-        msg = MIMEMultipart("alternative")
-        msg['From'] = CONFIGS["EMAIL_FROM"]
-        msg['To'] = ', '.join(to_emails)
-        msg['Subject'] = subject
+# if PROXY:
+#     def send_email(subject, body="", html=""):
+#         print(subject)
+#         print(body)
+#         print(html)
+# else:
+SMTP_SERVER = smtplib.SMTP('smtp.gmail.com', 587)  # Specify your SMTP server and port
+SMTP_SERVER.starttls()  # Secure the connection
+SMTP_SERVER.login(CONFIGS["EMAIL_FROM"], CONFIGS["EMAIL_PASS"])
+def send_email(subject , html="", body=""):
+    # Create the email message
+    to_emails = CONFIGS["EMAIL_TO"]
+    msg = MIMEMultipart("alternative")
+    msg['From'] = CONFIGS["EMAIL_FROM"]
+    msg['To'] = ', '.join(to_emails)
+    msg['Subject'] = subject
 
-        # Attach the body with the msg instance
-        if body:
-            msg.attach(MIMEText(body, 'plain'))
-        if html:
-            msg.attach(MIMEText(html, 'html'))
-        # Set up the server and send the email
-        try:
-            
-            text = msg.as_string()
-            SMTP_SERVER.sendmail(CONFIGS["EMAIL_FROM"], to_emails, text)
-            print(f"Email sent successfully:{text}")
-        except Exception as e:
-            print(f"Failed to send email: {str(e)}")
+    # Attach the body with the msg instance
+    if body:
+        msg.attach(MIMEText(body, 'plain'))
+    if html:
+        msg.attach(MIMEText(html, 'html'))
+    # Set up the server and send the email
+    try:
+        
+        text = msg.as_string()
+        SMTP_SERVER.sendmail(CONFIGS["EMAIL_FROM"], to_emails, text)
+        print(f"Email sent successfully:{text}")
+    except Exception as e:
+        print(f"Failed to send email: {str(e)}")
 
 
 def format_numbers(num)->str:
@@ -148,7 +148,7 @@ class MyBNCClient(Client):
         if this is for sell: ntl is columnN
         """
         lines = [
-            ("ID", _id),
+            ("ID", int(_id)),
             ("Symbol", symbol),
             ("Price", format_numbers(price)),
             ("Expd Price",format_numbers(ntl)),
@@ -167,7 +167,7 @@ class MyBNCClient(Client):
         """
         assert side in ("BUY", "SELL")
         lines = [
-            ("ID", _id),
+            ("ID", int(_id)),
             ("Symbol", sym),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)), 
             ("params", json.dumps(self.sell_params) if side=="SELL" else json.dumps(self.buy_params)),
@@ -202,7 +202,7 @@ class MyBNCClient(Client):
 
     def generate_buy_insufficient_email(self, columnC, ColumnI, AN23, _id):
         lines =[
-            ("ID", _id),
+            ("ID", int(_id)),
             ("Symbol", columnC),
             ("Buy", ColumnI),
             ("Cash", AN23)
@@ -211,15 +211,16 @@ class MyBNCClient(Client):
 
     def generate_min_insufficient_email(self, columnC, columnH, _min, _id):
         lines = [
-            ("ID", _id),
+            ("ID", int(_id)),
             ("Symbol", columnC),
             ("Min", columnH),
             ("Cash", _min)
         ]
         return generate_table(lines)
 
-    def generate_error_email(self, symbol, url, resp):
+    def generate_error_email(self, symbol, _id, url, resp):
         lines = [
+            ("ID", int(_id)),
             ("Symbol", symbol),
             ("",""),
             ("Sent", url),
@@ -319,7 +320,7 @@ class MyBNCClient(Client):
         return generate_table(lines)
 
 
-def fetch_market_price(sym, email_prefix:str):
+def fetch_market_price(sym, _id, email_prefix:str):
     pair = f"{sym}USDT"
     url = f"https://api.binance.com/api/v1/ticker/price?symbol={pair}"
     print("proceeding step 6.1?")
@@ -338,7 +339,7 @@ def fetch_market_price(sym, email_prefix:str):
     except Exception as e:
         data = {"msg": str(e)}
         print(f"error fetching {pair} price: {data}, continue?")
-        send_email(f"Crypto-Binance-{email_prefix}-QueryError", CLIENT.generate_error_email(sym, url, data))
+        send_email(f"Crypto-Binance-{email_prefix}-QueryError", CLIENT.generate_error_email(sym, _id, url, data))
         return {}, ""
     
 

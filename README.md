@@ -1,8 +1,8 @@
 # python-scripts
-
-### set up gmail
-- Go to your Google Account settings: [Google Account](https://myaccount.google.com/).
-- Navigate to the Security section.
-- Enable 2-step verification if it's not already enabled.
-- Once enabled, search for "App passwords" section.
-- Generate a new App Password for your application (e.g., mail script).
+1. go to the automation-script directory
+2. python -m ensurepip
+3. python -m pip install pdm
+4. python -m pdm init (with all default value)
+5. python -m pdm sync
+6. .venv/bin/activate.bat
+7. python src/main.py

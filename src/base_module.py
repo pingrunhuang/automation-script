@@ -52,7 +52,7 @@ class BaseModule(ABC):
 
         if qty != "-" and exch == "Binance":
             call_vb(self.workbook)
-            data, url = fetch_market_price(sym, email_prefix)
+            data, url = fetch_market_price(sym, _id, email_prefix)
             if not data:
                 return
 
