@@ -229,7 +229,7 @@ class MyBNCClient(Client):
         ]
         return generate_table(lines)
     
-    def _generate_buy_email(self, sym, resp:dict, columnIcell:str, columnJcell:str):
+    def _generate_buy_email(self, sym, resp:dict, columnIcell:str, columnJcell:str, executed_qty:float):
         ts_date = timestamp2date(float(resp['transactTime']))
         prx = resp["fills"][0]["price"]
         lines = [
@@ -238,7 +238,7 @@ class MyBNCClient(Client):
             ("Expd Buy", format_numbers(columnIcell)),
             ("Price", prx),
             ("Expd Price", columnJcell),
-            ("Qty", format_numbers(resp['executedQty'])),
+            ("Qty", format_numbers(executed_qty)),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
@@ -248,7 +248,7 @@ class MyBNCClient(Client):
         ]
         return lines
     
-    def _generate_min_email(self, sym, resp:dict, columnHcell:str, columnJcell:str):
+    def _generate_min_email(self, sym, resp:dict, columnHcell:str, columnJcell:str, executed_qty:float):
         ts_date = timestamp2date(float(resp['transactTime'])) 
         prx = resp["fills"][0]["price"]
         lines = [
@@ -257,7 +257,7 @@ class MyBNCClient(Client):
             ("Expd Min", format_numbers(columnHcell)),
             ("Price", prx),
             ("Expd Price", columnJcell),
-            ("Qty", format_numbers(resp['executedQty'])),
+            ("Qty", format_numbers(executed_qty)),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
@@ -267,7 +267,7 @@ class MyBNCClient(Client):
         ]
         return lines
     
-    def _generate_sell_email(self, sym, resp:dict, columnMcell:str, columnNcell:str):
+    def _generate_sell_email(self, sym, resp:dict, columnMcell:str, columnNcell:str, executed_qty:float):
         ts_date = timestamp2date(float(resp['transactTime']))
         prx = resp["fills"][0]["price"]
         lines = [
@@ -276,7 +276,7 @@ class MyBNCClient(Client):
             ("Expd Sell-Profit", format(columnMcell)), 
             ("Price", prx),
             ("Expd Price", columnNcell),
-            ("Qty", format_numbers(resp['executedQty'])),
+            ("Qty", format_numbers(executed_qty)),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
@@ -286,7 +286,7 @@ class MyBNCClient(Client):
         ]
         return lines
 
-    def _generate_reset_email(self, sym, resp:dict, columnScell:str, columnNcell:str):
+    def _generate_reset_email(self, sym, resp:dict, columnScell:str, columnNcell:str, executed_qty:float):
         ts_date = timestamp2date(float(resp['transactTime']))
         prx = resp["fills"][0]["price"]
         lines = [
@@ -295,7 +295,7 @@ class MyBNCClient(Client):
             ("Expd Sell-Reset", columnScell), 
             ("Price", prx),
             ("Expd Price", columnNcell),
-            ("Qty", format_numbers(resp['executedQty'])),
+            ("Qty", format_numbers(executed_qty)),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
@@ -306,7 +306,12 @@ class MyBNCClient(Client):
         return lines
 
     def generate_done_email(self, sym, resp, qty, market_price, email_prefix, _id):
-        lines = [("ID", _id)]
+        lines = [("ID", int(_id))]
+        if CONFIGS["TESTNET"] is True:
+            executed_qty = sum([float(entry['qty'])-float(0.00000001) for entry in resp["fills"]])
+        else:
+            executed_qty = sum([float(entry['qty'])-float(entry['commission']) for entry in resp["fills"]])
+
         match email_prefix:
             case "Buy-More":
                 func = self._generate_buy_email
@@ -316,8 +321,8 @@ class MyBNCClient(Client):
                 func = self._generate_sell_email
             case "Sell-Reset":
                 func = self._generate_reset_email
-        lines += func(sym, resp, qty, market_price)
-        return generate_table(lines)
+        lines += func(sym, resp, qty, market_price, executed_qty)
+        return generate_table(lines), executed_qty
 
 
 def fetch_market_price(sym, _id, email_prefix:str):

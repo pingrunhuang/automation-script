@@ -16,7 +16,7 @@ class MinModule(BaseModule):
         if statsH2 >= columnH:
             self.market_operation(row, "BUY", "J", "H", prefix, _id)
         else:
-            send_email(f"Crypto-Binance-{prefix}-Insufficient", CLIENT.generate_min_insufficient_email(sym, columnH, statsH2, id))
+            send_email(f"Crypto-Binance-{prefix}-Insufficient", CLIENT.generate_min_insufficient_email(sym, columnH, statsH2, _id))
 
 def run(workbook):
     MinModule(workbook).run()
