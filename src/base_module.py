@@ -39,7 +39,7 @@ class BaseModule(ABC):
         sheet.cells(row, 1).value = _id  # column A
         sheet.cells(row, 3 if side == "BUY" else 4).value = "USDT"  # column C or D
         sheet.cells(row, 5).value = str_dt  # column E
-        sheet.cells(row, 7).value = -float(quote_qty) if side == "BUY" else quote_qty  # column G or H
+        sheet.cells(row, 8 if self.__class__.__name__ == "SellModule" else 7).value = -float(quote_qty) if side == "BUY" else quote_qty  # column G or H
         sheet.cells(row, 10).value = executed_qty if side == "BUY" else -executed_qty  # column J
         print("check binance sheet?")
         return row

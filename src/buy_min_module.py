@@ -1,5 +1,5 @@
 from base_module import BaseModule
-from utils import send_email, CLIENT
+from utils import send_email, CLIENT, call_vb
 
 class MinModule(BaseModule):
     def process_row(self, row: int):
@@ -17,6 +17,7 @@ class MinModule(BaseModule):
             self.market_operation(row, "BUY", "J", "H", prefix, _id)
         else:
             send_email(f"Crypto-Binance-{prefix}-Insufficient", CLIENT.generate_min_insufficient_email(sym, columnH, statsH2, _id))
+            call_vb(self.workbook)
 
 def run(workbook):
     MinModule(workbook).run()

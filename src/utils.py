@@ -78,8 +78,13 @@ def send_email(subject , html="", body=""):
 def format_numbers(num)->str:
     # if type(num) is str:
     #     num = float(num)
-    # return "%.2f" % num
+    # return "%.8f" % num
     return num
+
+def format_qty(num)->str:
+    if type(num) is str:
+        num = float(num)
+    return "%.8f" % num
 
 
 def color_print(msg, color=None):
@@ -238,7 +243,7 @@ class MyBNCClient(Client):
             ("Expd Buy", format_numbers(columnIcell)),
             ("Price", prx),
             ("Expd Price", columnJcell),
-            ("Qty", format_numbers(executed_qty)),
+            ("Qty", format_qty(executed_qty)),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
@@ -257,7 +262,7 @@ class MyBNCClient(Client):
             ("Expd Min", format_numbers(columnHcell)),
             ("Price", prx),
             ("Expd Price", columnJcell),
-            ("Qty", format_numbers(executed_qty)),
+            ("Qty", format_qty(executed_qty)),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
@@ -276,7 +281,7 @@ class MyBNCClient(Client):
             ("Expd Sell-Profit", format(columnMcell)), 
             ("Price", prx),
             ("Expd Price", columnNcell),
-            ("Qty", format_numbers(executed_qty)),
+            ("Qty", format_qty(executed_qty)),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
@@ -295,7 +300,7 @@ class MyBNCClient(Client):
             ("Expd Sell-Reset", columnScell), 
             ("Price", prx),
             ("Expd Price", columnNcell),
-            ("Qty", format_numbers(executed_qty)),
+            ("Qty", format_qty(executed_qty)),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),

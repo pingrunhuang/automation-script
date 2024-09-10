@@ -1,5 +1,5 @@
 from base_module import BaseModule
-from utils import send_email, CLIENT
+from utils import send_email, CLIENT, call_vb
 
 class BuyMoreModule(BaseModule):
     def process_row(self, row: int):
@@ -16,6 +16,7 @@ class BuyMoreModule(BaseModule):
             self.market_operation(row, "BUY", "J", "I", prefix, _id)
         else:
             send_email(f"Crypto-Binance-{prefix}-Insufficient", CLIENT.generate_buy_insufficient_email(sym, columnI, statsH2, _id))
-
+            call_vb(self.workbook)
+            
 def run(workbook):
     BuyMoreModule(workbook).run()
