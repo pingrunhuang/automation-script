@@ -312,10 +312,7 @@ class MyBNCClient(Client):
 
     def generate_done_email(self, sym, resp, qty, market_price, email_prefix, _id):
         lines = [("ID", int(_id))]
-        if CONFIGS["TESTNET"] is True:
-            executed_qty = sum([float(entry['qty'])-float(0.00000001) for entry in resp["fills"]])
-        else:
-            executed_qty = sum([float(entry['qty'])-float(entry['commission']) for entry in resp["fills"]])
+        executed_qty = sum([float(entry['qty']) for entry in resp["fills"]])
 
         match email_prefix:
             case "Buy-More":
@@ -327,7 +324,7 @@ class MyBNCClient(Client):
             case "Sell-Reset":
                 func = self._generate_reset_email
         lines += func(sym, resp, qty, market_price, executed_qty)
-        return generate_table(lines), executed_qty
+        return generate_table(lines)
 
 
 def fetch_market_price(sym, _id, email_prefix:str):
@@ -369,3 +366,20 @@ def duration_formating(duration:int):
     else:
         s_seconds = str(seconds)
     return f"{s_minutes}:{s_seconds}"
+
+
+def generate_qty(resp:dict):
+    quote_qty = float(resp["cummulativeQuoteQty"])
+    qty = 0
+    
+    if len(resp["fills"])>0:
+        if resp["fills"][0]["commissionAsset"] == "USDT":
+            for fill in resp["fills"]:
+                commission = float(fill["commission"])
+                quote_qty -= commission
+                qty += float(fill['qty'])
+        else:
+            for fill in resp["fills"]:
+                commission = float(fill["commission"])
+                qty += (float(fill['qty'])-commission)
+    return quote_qty, qty

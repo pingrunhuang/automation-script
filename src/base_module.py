@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from utils import CLIENT, send_email, call_vb, fetch_market_price
+from utils import CLIENT, send_email, call_vb, fetch_market_price, generate_qty
 from xlwings import Book
 from datetime import datetime
 from binance.exceptions import BinanceAPIException, BinanceOrderException
@@ -65,8 +65,15 @@ class BaseModule(ABC):
                 try:
                     order_detail = self.create_order(sym, qty, side)
                     if order_detail:
-                        table, executed_qty = CLIENT.generate_done_email(sym, order_detail, qty, market_price, email_prefix, _id)
+                        table = CLIENT.generate_done_email(sym, order_detail, qty, market_price, email_prefix, _id)
                         send_email(f"Crypto-Binance-{email_prefix}-Done", table)
-                        self.process_binance_sheet(_id, datetime.today(), order_detail["cummulativeQuoteQty"], executed_qty, side)
+                        quote_qty, executed_qty  = generate_qty(order_detail)
+                        self.process_binance_sheet(
+                            _id=_id, 
+                            dt=datetime.today(), 
+                            quote_qty=quote_qty, 
+                            executed_qty=executed_qty, 
+                            side=side
+                        )
                 except (BinanceOrderException, BinanceAPIException) as e:
                     send_email(f"Crypto-Binance-{email_prefix}-OrderError", CLIENT.generate_order_error_mail(sym, e.message, _id, side))
