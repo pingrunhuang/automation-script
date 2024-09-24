@@ -43,36 +43,36 @@ def generate_table(lines):
     """
     return html
 
-# if PROXY:
-#     def send_email(subject, body="", html=""):
-#         print(subject)
-#         print(body)
-#         print(html)
-# else:
-SMTP_SERVER = smtplib.SMTP('smtp.gmail.com', 587)  # Specify your SMTP server and port
-SMTP_SERVER.starttls()  # Secure the connection
-SMTP_SERVER.login(CONFIGS["EMAIL_FROM"], CONFIGS["EMAIL_PASS"])
-def send_email(subject , html="", body=""):
-    # Create the email message
-    to_emails = CONFIGS["EMAIL_TO"]
-    msg = MIMEMultipart("alternative")
-    msg['From'] = CONFIGS["EMAIL_FROM"]
-    msg['To'] = ', '.join(to_emails)
-    msg['Subject'] = subject
+if PROXY:
+    def send_email(subject, body="", html=""):
+        print(subject)
+        print(body)
+        print(html)
+else:
+    SMTP_SERVER = smtplib.SMTP('smtp.gmail.com', 587)  # Specify your SMTP server and port
+    SMTP_SERVER.starttls()  # Secure the connection
+    SMTP_SERVER.login(CONFIGS["EMAIL_FROM"], CONFIGS["EMAIL_PASS"])
+    def send_email(subject , html="", body=""):
+        # Create the email message
+        to_emails = CONFIGS["EMAIL_TO"]
+        msg = MIMEMultipart("alternative")
+        msg['From'] = CONFIGS["EMAIL_FROM"]
+        msg['To'] = ', '.join(to_emails)
+        msg['Subject'] = subject
 
-    # Attach the body with the msg instance
-    if body:
-        msg.attach(MIMEText(body, 'plain'))
-    if html:
-        msg.attach(MIMEText(html, 'html'))
-    # Set up the server and send the email
-    try:
-        
-        text = msg.as_string()
-        SMTP_SERVER.sendmail(CONFIGS["EMAIL_FROM"], to_emails, text)
-        print(f"Email sent successfully:{text}")
-    except Exception as e:
-        print(f"Failed to send email: {str(e)}")
+        # Attach the body with the msg instance
+        if body:
+            msg.attach(MIMEText(body, 'plain'))
+        if html:
+            msg.attach(MIMEText(html, 'html'))
+        # Set up the server and send the email
+        try:
+            
+            text = msg.as_string()
+            SMTP_SERVER.sendmail(CONFIGS["EMAIL_FROM"], to_emails, text)
+            print(f"Email sent successfully:{text}")
+        except Exception as e:
+            print(f"Failed to send email: {str(e)}")
 
 
 def format_numbers(num)->str:
@@ -190,12 +190,12 @@ class MyBNCClient(Client):
         duration = time.time()-start_time
         dur = duration_formating(duration)
         lines = [
-            ("Total-USD", "USD.%.f"%int(AQ2)),
-            ("Total-AED", "AED.%.f"%int(AS2)),
             ("P/L%", "{:.1%}".format(float(AQ4))), # 100 percent format
-            ("Profit", "USD.%.f"%int(statsC15)),
-            ("AJ-USDT", "USDT.%.f"%int(AN23)),
-            ("Binance-USDT", "USDT.%.f"%float(resp['free'])),
+            ("Total-USD", "USD %.f"%int(AQ2)),
+            ("Total-AED", "AED %.f"%int(AS2)),
+            ("Profit", "USD %.f"%int(statsC15)),
+            ("Excel-USDT", "USDT {:.8f}".format(float(AN23))),
+            ("Binance-USDT", "USDT {:.8f}".format(float(resp['free']))),
             ("",""),
             ("Sent", url),
             ("",""),
@@ -234,9 +234,10 @@ class MyBNCClient(Client):
         ]
         return generate_table(lines)
     
-    def _generate_buy_email(self, sym, resp:dict, columnIcell:str, columnJcell:str, executed_qty:float):
+    def _generate_buy_email(self, sym, resp:dict, columnIcell:str, columnJcell:str, columnXcell:str, executed_qty:float, free:str):
         ts_date = timestamp2date(float(resp['transactTime']))
         prx = resp["fills"][0]["price"]
+        
         lines = [
             ("Symbol", sym),
             ("Buy", format_numbers(resp['cummulativeQuoteQty'])),
@@ -244,6 +245,8 @@ class MyBNCClient(Client):
             ("Price", prx),
             ("Expd Price", columnJcell),
             ("Qty", format_qty(executed_qty)),
+            ("Excel-Coin", columnXcell),
+            ("Binance-Coin", free),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
@@ -253,7 +256,7 @@ class MyBNCClient(Client):
         ]
         return lines
     
-    def _generate_min_email(self, sym, resp:dict, columnHcell:str, columnJcell:str, executed_qty:float):
+    def _generate_min_email(self, sym, resp:dict, columnHcell:str, columnJcell:str, columnXcell:str, executed_qty:float, free:str):
         ts_date = timestamp2date(float(resp['transactTime'])) 
         prx = resp["fills"][0]["price"]
         lines = [
@@ -263,6 +266,8 @@ class MyBNCClient(Client):
             ("Price", prx),
             ("Expd Price", columnJcell),
             ("Qty", format_qty(executed_qty)),
+            ("Excel-Coin", columnXcell),
+            ("Binance-Coin", free),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
@@ -272,7 +277,7 @@ class MyBNCClient(Client):
         ]
         return lines
     
-    def _generate_sell_email(self, sym, resp:dict, columnMcell:str, columnNcell:str, executed_qty:float):
+    def _generate_sell_email(self, sym, resp:dict, columnMcell:str, columnNcell:str, columnXcell:str, executed_qty:float, free:str):
         ts_date = timestamp2date(float(resp['transactTime']))
         prx = resp["fills"][0]["price"]
         lines = [
@@ -282,6 +287,8 @@ class MyBNCClient(Client):
             ("Price", prx),
             ("Expd Price", columnNcell),
             ("Qty", format_qty(executed_qty)),
+            ("Excel-Coin", columnXcell),
+            ("Binance-Coin", free),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
@@ -291,7 +298,7 @@ class MyBNCClient(Client):
         ]
         return lines
 
-    def _generate_reset_email(self, sym, resp:dict, columnScell:str, columnNcell:str, executed_qty:float):
+    def _generate_reset_email(self, sym, resp:dict, columnScell:str, columnNcell:str, columnXcell:str, executed_qty:float, free:str):
         ts_date = timestamp2date(float(resp['transactTime']))
         prx = resp["fills"][0]["price"]
         lines = [
@@ -301,6 +308,8 @@ class MyBNCClient(Client):
             ("Price", prx),
             ("Expd Price", columnNcell),
             ("Qty", format_qty(executed_qty)),
+            ("Excel-Coin", columnXcell),
+            ("Binance-Coin", free),
             ("Date/Time", ts_date),
             ("",""),
             ("Sent", self._create_api_uri('order', True, BaseClient.PUBLIC_API_VERSION)),
@@ -310,9 +319,14 @@ class MyBNCClient(Client):
         ]
         return lines
 
-    def generate_done_email(self, sym, resp, qty, market_price, email_prefix, _id):
+    def generate_done_email(self, sym, resp, qty, market_price, email_prefix, _id, xcell):
         lines = [("ID", int(_id))]
         executed_qty = sum([float(entry['qty']) for entry in resp["fills"]])
+        balance = self.get_asset_balance(sym)
+        if balance:
+            free = balance["free"]
+        else:
+            free = ""
 
         match email_prefix:
             case "Buy-More":
@@ -323,7 +337,7 @@ class MyBNCClient(Client):
                 func = self._generate_sell_email
             case "Sell-Reset":
                 func = self._generate_reset_email
-        lines += func(sym, resp, qty, market_price, executed_qty)
+        lines += func(sym, resp, qty, market_price, xcell, executed_qty, free)
         return generate_table(lines)
 
 

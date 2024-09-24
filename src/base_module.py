@@ -49,6 +49,7 @@ class BaseModule(ABC):
         qty = self.sheet[f"{qty_column}{row}"].value
         sym = self.sheet[f"C{row}"].value
         market_price = self.sheet[f"{price_column}{row}"].value
+        xcell = self.sheet[f"X{row}"].value
 
         if qty != "-" and exch == "Binance":
             call_vb(self.workbook)
@@ -65,7 +66,7 @@ class BaseModule(ABC):
                 try:
                     order_detail = self.create_order(sym, qty, side)
                     if order_detail:
-                        table = CLIENT.generate_done_email(sym, order_detail, qty, market_price, email_prefix, _id)
+                        table = CLIENT.generate_done_email(sym, order_detail, qty, market_price, email_prefix, _id, xcell)
                         send_email(f"Crypto-Binance-{email_prefix}-Done", table)
                         quote_qty, executed_qty  = generate_qty(order_detail)
                         self.process_binance_sheet(
