@@ -32,7 +32,7 @@ class BaseModule(ABC):
         else:
             raise ValueError(f"Invalid side: {side}")
 
-    def process_binance_sheet(self, _id: str, dt: datetime, quote_qty: str, executed_qty: float, side: str):
+    def process_binance_sheet(self, _id: str, dt: datetime, quote_qty: str, executed_qty: float, side: str, order_id:str):
         sheet = self.workbook.sheets["Binance"]
         str_dt = dt.strftime("%d-%b-%y")
         row = sheet.range("A3").end("down").row + 1
@@ -41,6 +41,7 @@ class BaseModule(ABC):
         sheet.cells(row, 5).value = str_dt  # column E
         sheet.cells(row, 8 if self.__class__.__name__ == "SellModule" else 7).value = -float(quote_qty) if side == "BUY" else quote_qty  # column G or H
         sheet.cells(row, 10).value = executed_qty if side == "BUY" else -executed_qty  # column J
+        sheet.cells(row, 14).value = order_id # column N set to order_id
         print("check binance sheet?")
         return row
 
@@ -49,7 +50,6 @@ class BaseModule(ABC):
         qty = self.sheet[f"{qty_column}{row}"].value
         sym = self.sheet[f"C{row}"].value
         market_price = self.sheet[f"{price_column}{row}"].value
-        xcell = self.sheet[f"X{row}"].value
 
         if qty != "-" and exch == "Binance":
             call_vb(self.workbook)
@@ -59,22 +59,25 @@ class BaseModule(ABC):
 
             prx = float(data["price"])
             price_condition = prx < market_price if side == "SELL" else prx > market_price
-
             if price_condition:
                 send_email(f"Crypto-Binance-{email_prefix}-Reject", CLIENT.generate_reject_email(sym, data["price"], market_price, url, data, _id))
             else:
                 try:
                     order_detail = self.create_order(sym, qty, side)
                     if order_detail:
-                        table = CLIENT.generate_done_email(sym, order_detail, qty, market_price, email_prefix, _id, xcell)
-                        send_email(f"Crypto-Binance-{email_prefix}-Done", table)
                         quote_qty, executed_qty  = generate_qty(order_detail)
+                        order_id = order_detail["orderId"]
                         self.process_binance_sheet(
                             _id=_id, 
                             dt=datetime.today(), 
                             quote_qty=quote_qty, 
                             executed_qty=executed_qty, 
-                            side=side
+                            side=side,
+                            order_id=order_id
                         )
+                        xcell = self.sheet[f"X{row}"].value
+                        str_xcell = "{:.8f}".format(float(xcell))
+                        table = CLIENT.generate_done_email(sym, order_detail, qty, market_price, email_prefix, _id, str_xcell)
+                        send_email(f"Crypto-Binance-{email_prefix}-Done", table)
                 except (BinanceOrderException, BinanceAPIException) as e:
                     send_email(f"Crypto-Binance-{email_prefix}-OrderError", CLIENT.generate_order_error_mail(sym, e.message, _id, side))

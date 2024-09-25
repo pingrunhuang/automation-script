@@ -182,18 +182,19 @@ class MyBNCClient(Client):
         return generate_table(lines)
 
 
-    def generate_balance_email(self, AQ2:str, AS2:str, AQ4:str, AN23:str, statsC15:str, start_time:float):
+    def generate_balance_email(self, AQ2:str, AS2:str, AQ4:str, AN23:str, statsC15:str, statsD15, start_time:float):
         url = self._create_api_uri("account", signed=False, version=BaseClient.PUBLIC_API_VERSION)
         resp = self.get_asset_balance("USDT")
         print(f"Posting api: {url}, resp: {resp}")
         assert type(resp)==dict
         duration = time.time()-start_time
         dur = duration_formating(duration)
+        total_pl = float(statsC15)+float(statsD15)
         lines = [
             ("P/L%", "{:.1%}".format(float(AQ4))), # 100 percent format
+            ("P/L", "USD %.f"%int(total_pl)),
             ("Total-USD", "USD %.f"%int(AQ2)),
             ("Total-AED", "AED %.f"%int(AS2)),
-            ("Profit", "USD %.f"%int(statsC15)),
             ("Excel-USDT", "USDT {:.8f}".format(float(AN23))),
             ("Binance-USDT", "USDT {:.8f}".format(float(resp['free']))),
             ("",""),
@@ -322,6 +323,9 @@ class MyBNCClient(Client):
     def generate_done_email(self, sym, resp, qty, market_price, email_prefix, _id, xcell):
         lines = [("ID", int(_id))]
         executed_qty = sum([float(entry['qty']) for entry in resp["fills"]])
+        seconds = 3
+        print(f"Waiting for {seconds} to fetch binance balance...")
+        time.sleep(seconds)
         balance = self.get_asset_balance(sym)
         if balance:
             free = balance["free"]

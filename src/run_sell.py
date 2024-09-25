@@ -22,7 +22,8 @@ if __name__ == "__main__":
         pl_pct = sheet["F18"].value
         aj_usdt = sheet["H2"].value
         statsC15 = sheet["C15"].value
-        body = utils.CLIENT.generate_balance_email(int(total_usd), int(total_aed), pl_pct, aj_usdt, statsC15, start)
+        statsD15 = sheet["D15"].value
+        body = utils.CLIENT.generate_balance_email(int(total_usd), int(total_aed), pl_pct, aj_usdt, statsC15, statsD15, start)
         utils.send_email("Crypto-Binance-End", body)
         print("Finished sell profit and sell reset modules")
     except (TypeError, ValueError) as e:
