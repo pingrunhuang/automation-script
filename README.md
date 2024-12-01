@@ -14,3 +14,6 @@ Then based on threashold, can do buy, sell, reset and buy min action
 
 # To run
 7. python src/main.py
+
+
+1. how to get N2 value? 
